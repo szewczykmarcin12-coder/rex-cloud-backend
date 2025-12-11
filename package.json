@@ -1,0 +1,12 @@
+{
+  "name": "rex-cloud-backend",
+  "version": "1.0.0",
+  "description": "Backend API for REX Cloud calendar sync",
+  "scripts": {
+    "dev": "node api/calendar.js"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": "18.x"
+  }
+}
