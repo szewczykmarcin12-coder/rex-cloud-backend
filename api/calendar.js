@@ -14,7 +14,7 @@ export default async function handler(req, res) {
 
   // Konfiguracja GitHub - pobierana z Environment Variables
   const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-  const REPO_OWNER = process.env.REPO_OWNER || 'marcin-12';
+  const REPO_OWNER = process.env.REPO_OWNER || 'szewczykmarcin12-coder';
   const REPO_NAME = process.env.REPO_NAME || 'rex-calendar';
   const FILE_PATH = process.env.FILE_PATH || 'kalendarz.ics';
 
