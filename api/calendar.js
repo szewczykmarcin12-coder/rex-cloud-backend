@@ -1,122 +1,110 @@
-// api/calendar.js
-// Backend API for REX Cloud - synchronizacja kalendarza z GitHub
+export default async function handler(request, response) {
+  // CORS
+  response.setHeader('Access-Control-Allow-Origin', '*');
+  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-export default async function handler(req, res) {
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  // Handle preflight request
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+  if (request.method === 'OPTIONS') {
+    return response.status(200).end();
   }
 
-  // Konfiguracja GitHub - pobierana z Environment Variables
   const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
   const REPO_OWNER = process.env.REPO_OWNER || 'szewczykmarcin12-coder';
   const REPO_NAME = process.env.REPO_NAME || 'rex-calendar';
   const FILE_PATH = process.env.FILE_PATH || 'kalendarz.ics';
 
   if (!GITHUB_TOKEN) {
-    return res.status(500).json({ error: 'GitHub token not configured' });
+    return response.status(500).json({ error: 'GitHub token not configured' });
   }
 
-  const githubApiUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
+  const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
 
   try {
-    // GET - Pobierz kalendarz z GitHub
-    if (req.method === 'GET') {
-      const response = await fetch(githubApiUrl, {
+    if (request.method === 'GET') {
+      const res = await fetch(url, {
         headers: {
           'Authorization': `token ${GITHUB_TOKEN}`,
           'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'REX-Cloud-Backend'
+          'User-Agent': 'REX-Cloud'
         }
       });
 
-      if (!response.ok) {
-        const error = await response.text();
-        console.error('GitHub API error:', error);
-        return res.status(response.status).json({ error: 'Failed to fetch calendar from GitHub' });
+      if (!res.ok) {
+        return response.status(res.status).json({ error: 'GitHub fetch failed' });
       }
 
-      const data = await response.json();
-      
-      // Dekoduj zawartość z base64
+      const data = await res.json();
       const content = Buffer.from(data.content, 'base64').toString('utf-8');
-      
-      return res.status(200).json({
+
+      return response.status(200).json({
         success: true,
         content: content,
-        sha: data.sha, // Potrzebne do aktualizacji
-        lastModified: data.sha
+        sha: data.sha
       });
     }
 
-    // POST - Zapisz kalendarz do GitHub
-    if (req.method === 'POST') {
-      const { content, sha, message } = req.body;
+    if (request.method === 'POST') {
+      const { content, sha, message } = request.body;
 
       if (!content) {
-        return res.status(400).json({ error: 'Content is required' });
+        return response.status(400).json({ error: 'Content required' });
       }
 
-      // Najpierw pobierz aktualny SHA jeśli nie podano
       let currentSha = sha;
       if (!currentSha) {
-        const getResponse = await fetch(githubApiUrl, {
+        const getRes = await fetch(url, {
           headers: {
             'Authorization': `token ${GITHUB_TOKEN}`,
             'Accept': 'application/vnd.github.v3+json',
-            'User-Agent': 'REX-Cloud-Backend'
+            'User-Agent': 'REX-Cloud'
           }
         });
-        
-        if (getResponse.ok) {
-          const getData = await getResponse.json();
+        if (getRes.ok) {
+          const getData = await getRes.json();
           currentSha = getData.sha;
         }
       }
 
-      // Zakoduj zawartość do base64
-      const encodedContent = Buffer.from(content, 'utf-8').toString('base64');
-
-      const updateResponse = await fetch(githubApiUrl, {
+      const updateRes = await fetch(url, {
         method: 'PUT',
         headers: {
           'Authorization': `token ${GITHUB_TOKEN}`,
           'Accept': 'application/vnd.github.v3+json',
           'Content-Type': 'application/json',
-          'User-Agent': 'REX-Cloud-Backend'
+          'User-Agent': 'REX-Cloud'
         },
         body: JSON.stringify({
-          message: message || 'Aktualizacja kalendarza z REX Cloud',
-          content: encodedContent,
+          message: message || 'Update from REX Cloud',
+          content: Buffer.from(content, 'utf-8').toString('base64'),
           sha: currentSha
         })
       });
 
-      if (!updateResponse.ok) {
-        const error = await updateResponse.text();
-        console.error('GitHub API error:', error);
-        return res.status(updateResponse.status).json({ error: 'Failed to update calendar on GitHub' });
+      if (!updateRes.ok) {
+        return response.status(updateRes.status).json({ error: 'GitHub update failed' });
       }
 
-      const updateData = await updateResponse.json();
-
-      return res.status(200).json({
+      const updateData = await updateRes.json();
+      return response.status(200).json({
         success: true,
-        message: 'Calendar updated successfully',
         sha: updateData.content.sha
       });
     }
 
-    // Nieobsługiwana metoda
-    return res.status(405).json({ error: 'Method not allowed' });
+    return response.status(405).json({ error: 'Method not allowed' });
 
   } catch (error) {
-    console.error('Server error:', error);
-    return res.status(500).json({ error: 'Internal server error', details: error.message });
+    return response.status(500).json({ error: error.message });
   }
 }
+```
+
+4. Kliknij **"Commit changes"**
+
+---
+
+## Krok 3: Sprawdź w Vercel
+
+Poczekaj aż Vercel zrobi automatyczny redeploy (1-2 minuty), potem wejdź na:
+```
+https://rex-cloud-backend.vercel.app/api/calendar
