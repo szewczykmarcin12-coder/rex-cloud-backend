@@ -1,259 +1,221 @@
-// REX Cloud - API dla wniosków pracowników
-// Endpoint: /api/requests
+export default async function handler(request, response) {
+  // CORS
+  response.setHeader('Access-Control-Allow-Origin', '*');
+  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-export default async function handler(req, res) {
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+  if (request.method === 'OPTIONS') {
+    return response.status(200).end();
   }
 
   const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-  const GITHUB_OWNER = process.env.GITHUB_OWNER || 'twoj-username';
-  const GITHUB_REPO = process.env.GITHUB_REPO || 'rex-cloud-data';
-  const FILE_PATH = 'requests.json';
+  const REPO_OWNER = process.env.REPO_OWNER || 'szewczykmarcin12-coder';
+  const REPO_NAME = process.env.REPO_NAME || 'rex-calendar';
+  const FILE_PATH = 'requests.json'; // Plik z wnioskami
 
   if (!GITHUB_TOKEN) {
-    return res.status(500).json({ success: false, error: 'GITHUB_TOKEN not configured' });
+    return response.status(500).json({ success: false, error: 'GitHub token not configured' });
   }
 
-  const githubAPI = async (method, endpoint, body = null) => {
-    const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}${endpoint}`;
-    const options = {
-      method,
-      headers: {
-        'Authorization': `Bearer ${GITHUB_TOKEN}`,
-        'Accept': 'application/vnd.github.v3+json',
-        'Content-Type': 'application/json',
-        'X-GitHub-Api-Version': '2022-11-28'
-      }
-    };
-    if (body) options.body = JSON.stringify(body);
-    const response = await fetch(url, options);
-    return response;
+  const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
+
+  const githubHeaders = {
+    'Authorization': `token ${GITHUB_TOKEN}`,
+    'Accept': 'application/vnd.github.v3+json',
+    'User-Agent': 'REX-Cloud'
   };
 
   try {
     // GET - pobierz wszystkie wnioski
-    if (req.method === 'GET') {
-      const response = await githubAPI('GET', `/contents/${FILE_PATH}`);
-      
-      if (response.status === 404) {
+    if (request.method === 'GET') {
+      const res = await fetch(url, { headers: githubHeaders });
+
+      if (res.status === 404) {
         // Plik nie istnieje - zwróć pustą tablicę
-        return res.status(200).json({ success: true, requests: [], sha: null });
+        return response.status(200).json({ success: true, requests: [], sha: null });
       }
 
-      if (!response.ok) {
-        const error = await response.json();
-        return res.status(500).json({ success: false, error: error.message });
+      if (!res.ok) {
+        return response.status(res.status).json({ success: false, error: 'GitHub fetch failed' });
       }
 
-      const data = await response.json();
+      const data = await res.json();
       const content = Buffer.from(data.content, 'base64').toString('utf-8');
       const requests = JSON.parse(content);
 
-      return res.status(200).json({ 
-        success: true, 
+      return response.status(200).json({
+        success: true,
         requests: requests,
-        sha: data.sha 
+        sha: data.sha
       });
     }
 
     // POST - dodaj nowy wniosek
-    if (req.method === 'POST') {
-      const { request } = req.body;
+    if (request.method === 'POST') {
+      const { request: newRequest } = request.body;
 
-      if (!request) {
-        return res.status(400).json({ success: false, error: 'Missing request data' });
+      if (!newRequest) {
+        return response.status(400).json({ success: false, error: 'Missing request data' });
       }
 
       // Pobierz aktualne wnioski
       let currentRequests = [];
       let currentSha = null;
 
-      const getResponse = await githubAPI('GET', `/contents/${FILE_PATH}`);
+      const getRes = await fetch(url, { headers: githubHeaders });
       
-      if (getResponse.ok) {
-        const data = await getResponse.json();
+      if (getRes.ok) {
+        const data = await getRes.json();
         const content = Buffer.from(data.content, 'base64').toString('utf-8');
         currentRequests = JSON.parse(content);
         currentSha = data.sha;
       }
 
       // Dodaj nowy wniosek z unikalnym ID
-      const newRequest = {
-        ...request,
-        id: request.id || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        createdAt: request.createdAt || new Date().toISOString(),
-        status: request.status || 'pending'
+      const requestToAdd = {
+        ...newRequest,
+        id: newRequest.id || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        createdAt: newRequest.createdAt || new Date().toISOString(),
+        status: newRequest.status || 'pending'
       };
 
-      currentRequests.push(newRequest);
+      currentRequests.push(requestToAdd);
 
       // Zapisz do GitHub
       const saveBody = {
-        message: `Add request: ${newRequest.id}`,
+        message: `Add request: ${requestToAdd.id}`,
         content: Buffer.from(JSON.stringify(currentRequests, null, 2)).toString('base64')
       };
       if (currentSha) saveBody.sha = currentSha;
 
-      const saveResponse = await githubAPI('PUT', `/contents/${FILE_PATH}`, saveBody);
+      const saveRes = await fetch(url, {
+        method: 'PUT',
+        headers: { ...githubHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify(saveBody)
+      });
 
-      if (!saveResponse.ok) {
-        const error = await saveResponse.json();
-        return res.status(500).json({ success: false, error: error.message });
+      if (!saveRes.ok) {
+        const errorText = await saveRes.text();
+        return response.status(saveRes.status).json({ success: false, error: 'GitHub save failed: ' + errorText });
       }
 
-      const saveData = await saveResponse.json();
+      const saveData = await saveRes.json();
 
-      return res.status(200).json({ 
-        success: true, 
-        request: newRequest,
-        sha: saveData.content.sha 
+      return response.status(200).json({
+        success: true,
+        request: requestToAdd,
+        sha: saveData.content.sha
       });
     }
 
     // PUT - zaktualizuj wniosek (np. zmień status)
-    if (req.method === 'PUT') {
-      const { requestId, updates, sha } = req.body;
+    if (request.method === 'PUT') {
+      const { requestId, updates } = request.body;
 
       if (!requestId || !updates) {
-        return res.status(400).json({ success: false, error: 'Missing requestId or updates' });
+        return response.status(400).json({ success: false, error: 'Missing requestId or updates' });
       }
 
       // Pobierz aktualne wnioski
-      const getResponse = await githubAPI('GET', `/contents/${FILE_PATH}`);
+      const getRes = await fetch(url, { headers: githubHeaders });
       
-      if (!getResponse.ok) {
-        return res.status(404).json({ success: false, error: 'Requests file not found' });
+      if (!getRes.ok) {
+        return response.status(404).json({ success: false, error: 'Requests file not found' });
       }
 
-      const data = await getResponse.json();
+      const data = await getRes.json();
       const content = Buffer.from(data.content, 'base64').toString('utf-8');
       let requests = JSON.parse(content);
 
       // Znajdź i zaktualizuj wniosek
       const index = requests.findIndex(r => r.id === requestId);
       if (index === -1) {
-        return res.status(404).json({ success: false, error: 'Request not found' });
+        return response.status(404).json({ success: false, error: 'Request not found' });
       }
 
-      requests[index] = { 
-        ...requests[index], 
+      requests[index] = {
+        ...requests[index],
         ...updates,
         updatedAt: new Date().toISOString()
       };
 
       // Zapisz do GitHub
-      const saveResponse = await githubAPI('PUT', `/contents/${FILE_PATH}`, {
-        message: `Update request: ${requestId} - ${updates.status || 'modified'}`,
-        content: Buffer.from(JSON.stringify(requests, null, 2)).toString('base64'),
-        sha: data.sha
+      const saveRes = await fetch(url, {
+        method: 'PUT',
+        headers: { ...githubHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: `Update request: ${requestId} - ${updates.status || 'modified'}`,
+          content: Buffer.from(JSON.stringify(requests, null, 2)).toString('base64'),
+          sha: data.sha
+        })
       });
 
-      if (!saveResponse.ok) {
-        const error = await saveResponse.json();
-        return res.status(500).json({ success: false, error: error.message });
+      if (!saveRes.ok) {
+        return response.status(saveRes.status).json({ success: false, error: 'GitHub update failed' });
       }
 
-      const saveData = await saveResponse.json();
+      const saveData = await saveRes.json();
 
-      return res.status(200).json({ 
-        success: true, 
+      return response.status(200).json({
+        success: true,
         request: requests[index],
-        sha: saveData.content.sha 
+        sha: saveData.content.sha
       });
     }
 
     // DELETE - usuń wniosek
-    if (req.method === 'DELETE') {
-      const { requestId } = req.body;
+    if (request.method === 'DELETE') {
+      const { requestId } = request.body;
 
       if (!requestId) {
-        return res.status(400).json({ success: false, error: 'Missing requestId' });
+        return response.status(400).json({ success: false, error: 'Missing requestId' });
       }
 
       // Pobierz aktualne wnioski
-      const getResponse = await githubAPI('GET', `/contents/${FILE_PATH}`);
+      const getRes = await fetch(url, { headers: githubHeaders });
       
-      if (!getResponse.ok) {
-        return res.status(404).json({ success: false, error: 'Requests file not found' });
+      if (!getRes.ok) {
+        return response.status(404).json({ success: false, error: 'Requests file not found' });
       }
 
-      const data = await getResponse.json();
+      const data = await getRes.json();
       const content = Buffer.from(data.content, 'base64').toString('utf-8');
       let requests = JSON.parse(content);
 
       // Usuń wniosek
+      const originalLength = requests.length;
       requests = requests.filter(r => r.id !== requestId);
 
+      if (requests.length === originalLength) {
+        return response.status(404).json({ success: false, error: 'Request not found' });
+      }
+
       // Zapisz do GitHub
-      const saveResponse = await githubAPI('PUT', `/contents/${FILE_PATH}`, {
-        message: `Delete request: ${requestId}`,
-        content: Buffer.from(JSON.stringify(requests, null, 2)).toString('base64'),
-        sha: data.sha
+      const saveRes = await fetch(url, {
+        method: 'PUT',
+        headers: { ...githubHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: `Delete request: ${requestId}`,
+          content: Buffer.from(JSON.stringify(requests, null, 2)).toString('base64'),
+          sha: data.sha
+        })
       });
 
-      if (!saveResponse.ok) {
-        const error = await saveResponse.json();
-        return res.status(500).json({ success: false, error: error.message });
+      if (!saveRes.ok) {
+        return response.status(saveRes.status).json({ success: false, error: 'GitHub delete failed' });
       }
 
-      const saveData = await saveResponse.json();
+      const saveData = await saveRes.json();
 
-      return res.status(200).json({ 
+      return response.status(200).json({
         success: true,
-        sha: saveData.content.sha 
+        sha: saveData.content.sha
       });
     }
 
-    // PATCH - bulk update (np. synchronizacja wielu wniosków)
-    if (req.method === 'PATCH') {
-      const { requests: newRequests } = req.body;
-
-      if (!Array.isArray(newRequests)) {
-        return res.status(400).json({ success: false, error: 'Invalid requests array' });
-      }
-
-      // Pobierz aktualne wnioski
-      let currentSha = null;
-      const getResponse = await githubAPI('GET', `/contents/${FILE_PATH}`);
-      
-      if (getResponse.ok) {
-        const data = await getResponse.json();
-        currentSha = data.sha;
-      }
-
-      // Zapisz wszystkie wnioski
-      const saveBody = {
-        message: `Bulk update: ${newRequests.length} requests`,
-        content: Buffer.from(JSON.stringify(newRequests, null, 2)).toString('base64')
-      };
-      if (currentSha) saveBody.sha = currentSha;
-
-      const saveResponse = await githubAPI('PUT', `/contents/${FILE_PATH}`, saveBody);
-
-      if (!saveResponse.ok) {
-        const error = await saveResponse.json();
-        return res.status(500).json({ success: false, error: error.message });
-      }
-
-      const saveData = await saveResponse.json();
-
-      return res.status(200).json({ 
-        success: true,
-        count: newRequests.length,
-        sha: saveData.content.sha 
-      });
-    }
-
-    return res.status(405).json({ success: false, error: 'Method not allowed' });
+    return response.status(405).json({ success: false, error: 'Method not allowed' });
 
   } catch (error) {
-    console.error('API Error:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    return response.status(500).json({ success: false, error: error.message });
   }
 }
