@@ -1,13 +1,13 @@
 {
   "name": "rex-cloud-backend",
   "version": "1.0.0",
-  "description": "REX Cloud Backend API - Calendar & Requests",
+  "type": "module",
+  "description": "Backend API for REX Cloud calendar sync",
   "scripts": {
-    "dev": "vercel dev",
-    "deploy": "vercel --prod"
+    "dev": "node api/calendar.js"
   },
   "dependencies": {},
   "engines": {
-    "node": ">=18"
+    "node": "24.x"
   }
 }
