@@ -1,74 +1,79 @@
 # REX Cloud Backend
 
-Backend API do synchronizacji kalendarza REX Cloud z GitHub.
+Backend API dla systemu REX Cloud - obsługuje kalendarz zmian i wnioski pracowników.
 
-## Deployment na Vercel
+## Endpointy
 
-### 1. Sklonuj to repozytorium
-### 2. Połącz z Vercel
-### 3. Skonfiguruj Environment Variables w Vercel:
+### `/api/calendar`
+- `GET` - pobierz kalendarz (plik ICS)
+- `POST` - zapisz kalendarz
 
-| Nazwa | Wartość |
-|-------|---------|
-| `GITHUB_TOKEN` | Twój Personal Access Token z GitHub |
-| `REPO_OWNER` | `marcin-12` |
-| `REPO_NAME` | `rex-calendar` |
-| `FILE_PATH` | `kalendarz.ics` |
+### `/api/requests`
+- `GET` - pobierz wszystkie wnioski
+- `POST` - dodaj nowy wniosek
+- `PUT` - zaktualizuj wniosek (np. zmień status)
+- `DELETE` - usuń wniosek
+- `PATCH` - bulk update wielu wniosków
 
-### 4. Deploy!
+## Konfiguracja
 
-## API Endpoints
+### Zmienne środowiskowe (Vercel)
 
-### GET /api/calendar
-Pobiera kalendarz z GitHub.
-
-**Response:**
-```json
-{
-  "success": true,
-  "content": "BEGIN:VCALENDAR...",
-  "sha": "abc123..."
-}
+```
+GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
+GITHUB_OWNER=twoj-username
+GITHUB_REPO=rex-cloud-data
 ```
 
-### POST /api/calendar
-Zapisuje kalendarz do GitHub.
+### Jak uzyskać GITHUB_TOKEN:
+1. Idź do GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
+2. Kliknij "Generate new token (classic)"
+3. Nadaj nazwę np. "REX Cloud Backend"
+4. Zaznacz uprawnienia: `repo` (full control)
+5. Wygeneruj i skopiuj token
 
-**Request body:**
-```json
-{
-  "content": "BEGIN:VCALENDAR...",
-  "sha": "abc123...",
-  "message": "Aktualizacja kalendarza"
-}
+### Repozytorium danych (rex-cloud-data)
+Utwórz repozytorium na GitHubie z plikami:
+- `calendar.ics` - pusty kalendarz ICS
+- `requests.json` - pusta tablica `[]`
+
+## Deploy na Vercel
+
+```bash
+npm i -g vercel
+vercel login
+vercel --prod
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Calendar updated successfully",
-  "sha": "def456..."
-}
-```
+Następnie dodaj zmienne środowiskowe w panelu Vercel:
+Project Settings → Environment Variables
 
-## Użycie w aplikacji
+## Użycie w aplikacjach
 
+### Aplikacja mobilna (dodawanie wniosku):
 ```javascript
-const API_URL = 'https://twoja-nazwa.vercel.app/api/calendar';
-
-// Pobierz kalendarz
-const response = await fetch(API_URL);
-const data = await response.json();
-console.log(data.content);
-
-// Zapisz kalendarz
-await fetch(API_URL, {
+const response = await fetch('https://rex-cloud-backend.vercel.app/api/requests', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    content: 'BEGIN:VCALENDAR...',
-    sha: data.sha
+    request: {
+      date: '2025-02-10',
+      type: 'vacation',
+      employeeId: 1,
+      employeeName: 'Jan Kowalski'
+    }
+  })
+});
+```
+
+### Panel admina (zmiana statusu):
+```javascript
+const response = await fetch('https://rex-cloud-backend.vercel.app/api/requests', {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    requestId: 'req_123456789',
+    updates: { status: 'approved' }
   })
 });
 ```
