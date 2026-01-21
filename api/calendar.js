@@ -14,7 +14,7 @@ export default async function handler(request, response) {
   const FILE_PATH = process.env.FILE_PATH || 'kalendarz.ics';
 
   if (!GITHUB_TOKEN) {
-    return response.status(500).json({ error: 'GitHub token not configured' });
+    return response.status(500).json({ success: false, error: 'GitHub token not configured' });
   }
 
   const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
@@ -30,7 +30,8 @@ export default async function handler(request, response) {
       });
 
       if (!res.ok) {
-        return response.status(res.status).json({ error: 'GitHub fetch failed' });
+        const errorData = await res.text();
+        return response.status(res.status).json({ success: false, error: 'GitHub fetch failed: ' + errorData });
       }
 
       const data = await res.json();
@@ -47,7 +48,7 @@ export default async function handler(request, response) {
       const { content, sha, message } = request.body;
 
       if (!content) {
-        return response.status(400).json({ error: 'Content required' });
+        return response.status(400).json({ success: false, error: 'Content required' });
       }
 
       let currentSha = sha;
@@ -81,7 +82,8 @@ export default async function handler(request, response) {
       });
 
       if (!updateRes.ok) {
-        return response.status(updateRes.status).json({ error: 'GitHub update failed' });
+        const errorData = await updateRes.text();
+        return response.status(updateRes.status).json({ success: false, error: 'GitHub update failed: ' + errorData });
       }
 
       const updateData = await updateRes.json();
@@ -91,20 +93,9 @@ export default async function handler(request, response) {
       });
     }
 
-    return response.status(405).json({ error: 'Method not allowed' });
+    return response.status(405).json({ success: false, error: 'Method not allowed' });
 
   } catch (error) {
-    return response.status(500).json({ error: error.message });
+    return response.status(500).json({ success: false, error: error.message });
   }
 }
-```
-
-4. Kliknij **"Commit changes"**
-
----
-
-## Krok 3: Sprawdź w Vercel
-
-Poczekaj aż Vercel zrobi automatyczny redeploy (1-2 minuty), potem wejdź na:
-```
-https://rex-cloud-backend.vercel.app/api/calendar
