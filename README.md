@@ -1,56 +1,35 @@
-# REX Cloud Backend
+# REX Cloud Backend v2.0
 
-Backend API do synchronizacji kalendarza i wniosków REX Cloud z GitHub.
+Backend API z Vercel KV (baza danych) zamiast GitHub.
 
-## Deployment na Vercel
+## Setup
 
-### 1. Skopiuj pliki do swojego repozytorium backendu
-### 2. W GitHub dodaj plik `requests.json` z zawartością: `[]`
-### 3. Zrób commit i push
+1. Zainstaluj Vercel CLI: `npm i -g vercel`
+2. Połącz projekt: `vercel link`
+3. Dodaj Vercel KV Storage:
+   - Wejdź na https://vercel.com/dashboard → Twój projekt → Storage → Create → KV
+   - Lub: `vercel storage create kv`
+4. Zmienne środowiskowe (KV_REST_API_URL, KV_REST_API_TOKEN) zostaną automatycznie dodane
+5. Deploy: `vercel --prod`
 
-## API Endpoints
+## Endpointy API
 
-### GET /api/calendar
-Pobiera kalendarz z GitHub.
-
-### POST /api/calendar
-Zapisuje kalendarz do GitHub.
-
-### GET /api/requests
-Pobiera wszystkie wnioski.
-
-### POST /api/requests
-Dodaje nowy wniosek.
-
-Request body:
+### POST /api/auth
+Login (admin lub pracownik).
 ```json
-{
-  "request": {
-    "date": "2025-02-10",
-    "type": "no_work",
-    "employeeId": 1,
-    "employeeName": "Jan Kowalski"
-  }
-}
+{ "login": "jan.kowalski", "pin": "1234", "role": "employee" }
 ```
+Dla admina: `{ "login": "admin", "pin": "1234", "role": "admin" }`
 
-### PUT /api/requests
-Aktualizuje wniosek (np. zmienia status).
+### GET/POST/PUT/DELETE /api/users
+Zarządzanie użytkownikami (admin).
 
-Request body:
-```json
-{
-  "requestId": "req_123456789",
-  "updates": { "status": "approved" }
-}
-```
+### GET/POST/PUT/DELETE /api/shifts
+Zarządzanie zmianami/grafikiem.
 
-### DELETE /api/requests
-Usuwa wniosek.
+### GET/POST/PUT/DELETE /api/requests
+Wnioski pracowników.
 
-Request body:
-```json
-{
-  "requestId": "req_123456789"
-}
-```
+## Domyślny admin
+Login: `admin`, PIN: `1234`
+(Tworzony automatycznie przy pierwszym logowaniu)
