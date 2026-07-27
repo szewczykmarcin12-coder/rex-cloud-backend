@@ -1,4 +1,4 @@
-import { kv, cors } from './_helpers.js';
+import { kv, cors, kvConfigured } from './_helpers.js';
 import crypto from 'crypto';
 
 function hashPin(pin) {
@@ -8,6 +8,7 @@ function hashPin(pin) {
 export default async function handler(req, res) {
   cors(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
+  if (!kvConfigured) return res.status(503).json({ success: false, error: 'Baza Upstash nie jest podłączona. W Vercel: projekt backendu → Storage → Redis (Upstash) → podłącz, a potem wdróż ponownie (vercel --prod).' });
 
   if (req.method === 'POST') {
     const { pin } = req.body;

@@ -1,4 +1,4 @@
-import { kv, cors } from './_helpers.js';
+import { kv, cors, kvConfigured } from './_helpers.js';
 
 // Normalize a name for matching: uppercase, trim, collapse spaces, strip Polish diacritics
 function normalizeName(name) {
@@ -11,6 +11,7 @@ function normalizeName(name) {
 export default async function handler(req, res) {
   cors(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
+  if (!kvConfigured) return res.status(503).json({ success: false, error: 'Baza Upstash nie jest podłączona. W Vercel: projekt backendu → Storage → Redis (Upstash) → podłącz, a potem wdróż ponownie (vercel --prod).' });
 
   try {
     // GET /api/schedule            -> full schedule (admin)
