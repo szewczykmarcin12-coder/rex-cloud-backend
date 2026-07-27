@@ -1,15 +1,11 @@
 {
   "name": "rex-cloud-backend",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "type": "module",
-  "description": "Backend API for REX Cloud with Vercel KV",
-  "scripts": {
-    "dev": "vercel dev"
-  },
+  "description": "Backend API for REX Cloud - Excel schedule import via Vercel KV",
+  "scripts": { "dev": "vercel dev" },
   "dependencies": {
     "@vercel/kv": "^2.0.0"
   },
-  "engines": {
-    "node": "20.x"
-  }
+  "engines": { "node": "20.x" }
 }
