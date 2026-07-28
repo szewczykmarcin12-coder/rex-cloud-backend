@@ -17,8 +17,8 @@ export default async function handler(req, res) {
     try {
       let admin = await kv.get('admin:pin');
       if (!admin) {
-        // First run: set default admin PIN = 1234
-        admin = hashPin('1234');
+        // First run: set default admin PIN = 123456
+        admin = hashPin('123456');
         await kv.set('admin:pin', admin);
       }
       if (hashPin(pin.trim()) === admin) {
@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     const { currentPin, newPin } = req.body;
     if (!currentPin || !newPin) return res.status(400).json({ success: false, error: 'Podaj obecny i nowy PIN' });
     try {
-      const admin = await kv.get('admin:pin') || hashPin('1234');
+      const admin = await kv.get('admin:pin') || hashPin('123456');
       if (hashPin(currentPin.trim()) !== admin) return res.status(401).json({ success: false, error: 'Nieprawidłowy obecny PIN' });
       await kv.set('admin:pin', hashPin(newPin.trim()));
       return res.json({ success: true });
