@@ -25,15 +25,35 @@ const TRASY = {
 };
 
 export default async function handler(req, res) {
-  const raw = (req.query && req.query.path) || [];
-  const segmenty = Array.isArray(raw) ? raw : [raw];
-  const nazwa = String(segmenty[0] || '').toLowerCase();
+  // Nazwę endpointu ustalamy przede wszystkim z adresu URL — nie polegamy na tym,
+  // że runtime wypełni parametr trasy (req.query.path). Fallback: query.path.
+  let nazwa = '';
+  try {
+    const sciezka = String(req.url || '').split('?')[0];           // np. /api/health
+    const czesci = sciezka.split('/').map((x) => x.trim()).filter(Boolean);
+    const iApi = czesci.indexOf('api');
+    const po = iApi >= 0 ? czesci.slice(iApi + 1) : czesci;
+    nazwa = (po[0] || '').toLowerCase();
+  } catch (e) { nazwa = ''; }
+
+  if (!nazwa) {
+    const raw = (req.query && req.query.path) || [];
+    const segmenty = (Array.isArray(raw) ? raw : [raw]).map((x) => String(x || '').trim()).filter(Boolean);
+    nazwa = (segmenty[0] || '').toLowerCase();
+  }
+
+  // /api lub /api/ — pokaż listę endpointów zamiast błędu
+  if (!nazwa) {
+    cors(res);
+    if (req.method === 'OPTIONS') return res.status(200).end();
+    return res.status(200).json({ success: true, api: 'REX Cloud', dostepne: Object.keys(TRASY), wskazowka: 'Sprawdź stan wdrożenia: /api/health' });
+  }
 
   const cel = TRASY[nazwa];
   if (!cel) {
     cors(res);
     if (req.method === 'OPTIONS') return res.status(200).end();
-    return res.status(404).json({ success: false, error: `Nieznany endpoint: /api/${nazwa}`, dostepne: Object.keys(TRASY) });
+    return res.status(404).json({ success: false, error: `Nieznany endpoint: /api/${nazwa}`, url: req.url || null, dostepne: Object.keys(TRASY) });
   }
 
   return cel(req, res);
