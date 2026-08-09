@@ -7,5 +7,5 @@
   "dependencies": {
     "@upstash/redis": "^1.38.0"
   },
-  "engines": { "node": "20.x" }
+  "engines": { "node": "22.x" }
 }
