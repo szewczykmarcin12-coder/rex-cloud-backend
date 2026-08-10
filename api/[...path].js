@@ -8,6 +8,7 @@ import accounts from '../lib/accounts.js';
 import budget from '../lib/budget.js';
 import sales from '../lib/sales.js';
 import health from '../lib/health.js';
+import templates from '../lib/templates.js';
 
 // Jedna funkcja serverless obsługuje wszystkie endpointy /api/*.
 // Dzięki temu projekt zajmuje 1 z 12 dostępnych funkcji na planie Hobby,
@@ -22,6 +23,7 @@ const TRASY = {
   'budget': budget,
   'sales': sales,
   'health': health,
+  'templates': templates,
 };
 
 export default async function handler(req, res) {
