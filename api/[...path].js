@@ -9,6 +9,7 @@ import budget from '../lib/budget.js';
 import sales from '../lib/sales.js';
 import health from '../lib/health.js';
 import templates from '../lib/templates.js';
+import clock from '../lib/clock.js';
 
 // Jedna funkcja serverless obsługuje wszystkie endpointy /api/*.
 // Dzięki temu projekt zajmuje 1 z 12 dostępnych funkcji na planie Hobby,
@@ -24,6 +25,7 @@ const TRASY = {
   'sales': sales,
   'health': health,
   'templates': templates,
+  'clock': clock,
 };
 
 export default async function handler(req, res) {
@@ -58,5 +60,13 @@ export default async function handler(req, res) {
     return res.status(404).json({ success: false, error: `Nieznany endpoint: /api/${nazwa}`, url: req.url || null, dostepne: Object.keys(TRASY) });
   }
 
-  return cel(req, res);
+  // Bezpiecznik: nawet nieprzewidziany crash handlera zwraca JSON z nagłówkami CORS,
+  // zamiast gołej 500-tki bez CORS (która w przeglądarce wygląda jak "Failed to fetch").
+  try {
+    return await cel(req, res);
+  } catch (e) {
+    try { cors(res); } catch {}
+    console.error('REX handler crash:', nazwa, e);
+    if (!res.headersSent) return res.status(500).json({ success: false, error: `Błąd serwera w /api/${nazwa}: ${(e && e.message) || 'nieznany'}` });
+  }
 }
