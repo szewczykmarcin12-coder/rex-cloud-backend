@@ -48,14 +48,14 @@ export default async function handler(req, res) {
 
   // /api lub /api/ — pokaż listę endpointów zamiast błędu
   if (!nazwa) {
-    cors(res);
+    cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     return res.status(200).json({ success: true, api: 'REX Cloud', dostepne: Object.keys(TRASY), wskazowka: 'Sprawdź stan wdrożenia: /api/health' });
   }
 
   const cel = TRASY[nazwa];
   if (!cel) {
-    cors(res);
+    cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     return res.status(404).json({ success: false, error: `Nieznany endpoint: /api/${nazwa}`, url: req.url || null, dostepne: Object.keys(TRASY) });
   }
@@ -65,7 +65,7 @@ export default async function handler(req, res) {
   try {
     return await cel(req, res);
   } catch (e) {
-    try { cors(res); } catch {}
+    try { cors(res, req); } catch {}
     console.error('REX handler crash:', nazwa, e);
     if (!res.headersSent) return res.status(500).json({ success: false, error: `Błąd serwera w /api/${nazwa}: ${(e && e.message) || 'nieznany'}` });
   }
