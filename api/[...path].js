@@ -61,9 +61,11 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, api: 'REX Cloud', dostepne: Object.keys(TRASY), wskazowka: 'Sprawdź stan wdrożenia: /api/health' });
   }
 
-  // P0-3 (audyt P4): produkcja wymaga jawnych sekretów — bez nich backend odmawia pracy (fail-closed)
+  // P0-3 (audyt P4): produkcja wymaga jawnych sekretów — bez nich backend odmawia pracy (fail-closed).
+  // Preflight OPTIONS zawsze dostaje 200 (inaczej przeglądarka pokazuje "Failed to fetch" zamiast błędu).
   if (process.env.VERCEL_ENV === 'production' && nazwa !== 'health' && (!process.env.SESSION_SECRET || !process.env.ALLOWED_ORIGINS)) {
     cors(res, req);
+    if (req.method === 'OPTIONS') return res.status(200).end();
     return res.status(503).json({ success: false, error: 'Konfiguracja produkcyjna niekompletna: ustaw SESSION_SECRET i ALLOWED_ORIGINS, potem wdróż ponownie. Szczegóły: /api/health.' });
   }
 
