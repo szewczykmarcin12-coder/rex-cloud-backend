@@ -174,3 +174,44 @@ Produkcja wymaga env: `SESSION_SECRET`, `ALLOWED_ORIGINS`; payroll dodatkowo `PA
 
 Poza zakresem kodu (wymagają decyzji/infrastruktury): migracja do Postgres z tenant/site
 (P1-1), sesje HttpOnly cookie (P1-2), kolejka offline terminala (P2-1), integracja POS.
+
+## v3.7 — REX WorkRhythm Modules v1.0.0 (dyspozycyjność + T&A wg wzorca)
+
+- **Dyspozycje dzienne** — `/api/availability?reqs=1` + `?action=request` / `?action=decide`:
+  pięć typów (mogę / nie mogę / od godziny / do godziny / konkretna zmiana), powtarzalność
+  tygodniowa z datą końca, komentarz pracownika i notatka managera, statusy pending/approved/
+  rejected, konflikt liczony względem OPUBLIKOWANEGO grafiku. Zatwierdzone „nie mogę pracować"
+  blokuje planowanie zmiany (409); ograniczenia godzin dają ostrzeżenia.
+- **Panel: strona „Dyspozycyjność"** (menu WorkRhythm) — wygląd 1:1 z wzorca: KPI, zakładki
+  filtrów, siatka tydzień×zespół, kolejka zgłoszeń i panel decyzji z notatką managera.
+- **Panel: moduł Time & Attendance** — widok live wg wzorca: KPI (w pracy / przerwa /
+  zakończone / terminale), Live attendance, karta terminala POS i tabela surowych odbić,
+  odświeżanie co 10 s; poniżej dotychczasowe zamykanie tygodni (CLOSED na serwerze).
+- **Aplikacja pracownika: strona „Dyspozycyjność"** — wygląd 1:1 z wzorca: wybór tygodnia
+  i dnia, kafelki typów, godziny co 15 min, przełącznik powtarzalności, komentarz 0–500 znaków,
+  lista „Nadchodzące dyspozycje" ze statusami i notatką managera.
+- Testy: `npm test` → 31 asercji (dyspozycje: zgłoszenie, walidacja dat, decyzje, blokada
+  planera, konflikt z publikacją, RBAC).
+
+## v3.7.1 — okno dyspozycji + poprawki widoczności
+
+- **Okno składania dyspozycji**: pracownicy składają dyspozycje wyłącznie na KOLEJNY miesiąc,
+  do 20. dnia bieżącego miesiąca. Po terminie okno zamyka się automatycznie; otworzyć/zamknąć
+  może je wyłącznie ASM (pasek na stronie Dyspozycyjność w panelu; audyt window-open/close).
+  Powtarzalność tygodniowa przycinana do końca miesiąca docelowego. Wpisy z panelu bez ograniczeń.
+- **Fix (panel)**: strona Dyspozycyjność pobiera wszystkie zgłoszenia (KPI i kolejka globalne;
+  siatka filtruje po wybranym tygodniu), start na pierwszym tygodniu miesiąca docelowego.
+- **Fix (T&A live)**: status osoby liczony z NAJNOWSZEGO odbicia (błąd wybierał najstarsze).
+- Aplikacja pracownika: baner miesiąca docelowego i terminu, dni spoza miesiąca wyszarzone,
+  przycisk wysyłki nieaktywny po zamknięciu okna.
+- Testy: 36 asercji (okno: zły miesiąc 400, zamknięte 403, otwarcie tylko ASM, przycięcie repeatUntil).
+
+## v3.7.2 — auto-sync Actual, pełne nazwiska, porządek w aplikacji
+
+- **Actual = automat**: widok Wykonanie sam pobiera odbicia z REX Clock przy otwarciu dnia
+  i odświeża je co 60 s. Wpisy z odbić (source: clock) są aktualizowane, ręczne korekty
+  kierownika NIGDY nie są nadpisywane. Przycisk „Synchronizuj teraz" został jako wymuszenie.
+- **Pełne nazwiska w Actual**: wiersze pokazują imię i nazwisko z konta pracownika;
+  alias z matrycy grafiku widoczny w dymku (title).
+- **Aplikacja pracownika**: usunięta karta „Moja dostępność" z zakładki Urlopy i wnioski —
+  dyspozycyjność ma własną stronę zgodną z wzorcem WorkRhythm.

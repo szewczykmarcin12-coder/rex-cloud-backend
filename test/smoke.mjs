@@ -99,6 +99,40 @@ await kv.set('accounts:list', [{ id: 'uA', name: '=HYPERLINK("evil")', grafikNam
 const csv = await call(timesheets, { method: 'GET', headers: asm, query: { action: 'payroll', week: '2026-08-10', format: 'csv' } });
 T('CSV injection zneutralizowany (P4-09)', csv.body.includes(`"'=HYPERLINK`));
 
+console.log('— WorkRhythm: dyspozycje dzienne + okno składania —');
+const availMod = await import('../lib/availability.js');
+const availability = availMod.default;
+// miesiąc docelowy = kolejny miesiąc (reguła okna)
+r = await call(availability, { method: 'GET', headers: emp, query: { window: '1' } });
+const okno0 = r.body.okno;
+T('stan okna dostępny (targetMonth = kolejny miesiąc)', r.code === 200 && /^\d{4}-\d{2}$/.test(okno0.targetMonth));
+const dTarget = (dd) => `${okno0.targetMonth}-${dd}`;
+// zły miesiąc (bieżący) → 400
+const dzisMies = new Date().toISOString().slice(0, 7);
+r = await call(availability, { method: 'POST', headers: emp, query: { action: 'request' }, body: { date: `${dzisMies}-28`, type: 'available' } });
+T('dyspozycja na bieżący miesiąc odrzucona (tylko kolejny)', r.code === 400);
+// zamknięte okno (ręcznie przez ASM) → 403; otwarcie → przechodzi
+await call(availability, { method: 'POST', headers: asm, query: { action: 'window' }, body: { open: false } });
+r = await call(availability, { method: 'POST', headers: emp, query: { action: 'request' }, body: { date: dTarget('10'), type: 'available' } });
+T('zamknięte okno blokuje pracownika (403)', r.code === 403);
+T('pracownik nie może otworzyć okna', (await call(availability, { method: 'POST', headers: emp, query: { action: 'window' }, body: { open: true } })).code === 403);
+await call(availability, { method: 'POST', headers: asm, query: { action: 'window' }, body: { open: true } });
+r = await call(availability, { method: 'POST', headers: emp, query: { action: 'request' }, body: { date: dTarget('10'), type: 'unavailable', note: 'zajęcia' } });
+T('po otwarciu przez ASM zgłoszenie przyjęte (pending)', r.code === 200 && r.body.request.status === 'pending');
+const dyId = r.body.request.id;
+T('data 2026-99-99 w dyspozycji odrzucona', (await call(availability, { method: 'POST', headers: emp, query: { action: 'request' }, body: { date: '2026-99-99', type: 'available' } })).code === 400);
+// powtarzalność przycięta do miesiąca docelowego
+r = await call(availability, { method: 'POST', headers: emp, query: { action: 'request' }, body: { date: dTarget('03'), type: 'from_time', startTime: '14:00', recurrence: 'weekly', repeatUntil: '2099-01-01' } });
+T('repeatUntil przycięty do miesiąca docelowego', r.code === 200 && r.body.request.repeatUntil.slice(0, 7) === okno0.targetMonth);
+T('pending NIE blokuje planera', (await call(schedule, { method: 'POST', headers: asm, query: { action: 'add' }, body: { date: dTarget('10'), name: 'KOWAL', start: '08:00', end: '12:00', accountId: 'uA' } })).code === 200);
+r = await call(availability, { method: 'POST', headers: asm, query: { action: 'decide' }, body: { id: dyId, status: 'approved', managerNote: 'ok' } });
+T('decyzja managera zapisana', r.code === 200 && r.body.request.status === 'approved');
+r = await call(schedule, { method: 'POST', headers: asm, query: { action: 'add' }, body: { date: dTarget('10'), name: 'KOWAL', start: '13:00', end: '17:00', accountId: 'uA' } });
+T('zatwierdzone „nie mogę" blokuje planera (409)', r.code === 409 && String(r.body.error).includes('nie mogę'));
+r = await call(availability, { method: 'GET', headers: asm, query: { reqs: '1' } });
+T('panel widzi wszystkie zgłoszenia bez filtra zakresu', r.code === 200 && r.body.requests.length >= 2 && typeof r.body.requests[0].conflict === 'boolean');
+T('pracownik nie może decydować', (await call(availability, { method: 'POST', headers: emp, query: { action: 'decide' }, body: { id: dyId, status: 'approved' } })).code === 403);
+
 console.log('— DATA-04: audyt niezmienny —');
 T('DELETE audytu → 405', (await call(audit, { method: 'DELETE', headers: asm, query: {} })).code === 405);
 
