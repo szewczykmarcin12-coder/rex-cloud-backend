@@ -133,6 +133,17 @@ r = await call(availability, { method: 'GET', headers: asm, query: { reqs: '1' }
 T('panel widzi wszystkie zgłoszenia bez filtra zakresu', r.code === 200 && r.body.requests.length >= 2 && typeof r.body.requests[0].conflict === 'boolean');
 T('pracownik nie może decydować', (await call(availability, { method: 'POST', headers: emp, query: { action: 'decide' }, body: { id: dyId, status: 'approved' } })).code === 403);
 
+console.log('— Zamiany i podgląd zespołu po kontach —');
+await kv.set('accounts:list', [{ id: 'uA', name: 'Jan Kowal', grafikName: 'KOWAL', aliasy: [], login: 'JANKOW001', funkcja: 'CREW', umowa: 'UZ', stawka: 30 }]);   // reset po teście CSV-injection
+const swapsH = (await import('../lib/swaps.js')).default;
+r = await call(swapsH, { method: 'POST', headers: emp, query: {}, body: { requester: 'KOWAL', shift: { date: '2026-08-11', station: 'FRYTKI', start: '08:00', end: '16:00' } } });
+T('zamiana zapisuje requesterAccountId (konto, nie alias)', r.code === 200 && r.body.swap.requesterAccountId === 'uA');
+r = await call(swapsH, { method: 'GET', headers: emp, query: {} });
+const swX = r.body.swaps[0];
+T('GET zamian zwraca pełne imię i nazwisko', swX.requesterDisplay === 'Jan Kowal');
+r = await call(schedule, { method: 'GET', headers: emp, query: { month: '2026-08' } });
+T('podgląd zespołu: pełne nazwiska + flaga mine', r.code === 200 && r.body.shifts.some((x) => x.name === 'Jan Kowal' && x.mine === true));
+
 console.log('— Import dopisujący (add-bulk) —');
 const przedAB = ((await kv.get('sched:2026-08')) || { shifts: [] }).shifts.length;
 r = await call(schedule, { method: 'POST', headers: asm, query: { action: 'add-bulk' }, body: { shifts: [
