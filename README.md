@@ -238,3 +238,14 @@ Nowa domyślna zakładka „Planowanie obsady" spina istniejące silniki w jeden
   — istniejący silnik szablonów dokłada propozycje na rezydualny niedobór („Użyj" = prefill).
 
 Dotychczasowe zakładki „Optymalizacja i prognoza" i „Budżet (COL)" pozostały obok.
+
+## v3.9 — import dopisujący godziny (np. MGR) + wybór stanowisk
+
+- `POST /api/schedule?action=add-bulk` — DOPISUJE zmiany do istniejącego grafiku (nie zastępuje
+  miesiąca): sid + wersja miesiąca + audyt `schedule.import-add`, automatyczne przypisanie kont
+  po nazwisku/aliasach, duplikaty (osoba+data+godziny) pomijane i raportowane, osoby bez kont
+  wskazane w odpowiedzi.
+- Import w panelu: obok „Zastąp miesiąc" nowy przycisk **„Dodaj godziny do grafiku (dopisz)"**;
+  pasek wyboru stanowiska z opcją **„Zastosuj dla wszystkich"** oraz edycją per wiersz w podglądzie.
+- Nowy format zapasowy pliku: prosta tabela XLSX `Nazwisko | Data | Od | Do | [Godziny] | [Stanowisko]`
+  (np. arkusz godzin MGR) — daty `RRRR-MM-DD` lub `DD.MM.RRRR`, czasy `HH:MM` lub excelowe.

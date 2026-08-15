@@ -133,6 +133,21 @@ r = await call(availability, { method: 'GET', headers: asm, query: { reqs: '1' }
 T('panel widzi wszystkie zgłoszenia bez filtra zakresu', r.code === 200 && r.body.requests.length >= 2 && typeof r.body.requests[0].conflict === 'boolean');
 T('pracownik nie może decydować', (await call(availability, { method: 'POST', headers: emp, query: { action: 'decide' }, body: { id: dyId, status: 'approved' } })).code === 403);
 
+console.log('— Import dopisujący (add-bulk) —');
+const przedAB = ((await kv.get('sched:2026-08')) || { shifts: [] }).shifts.length;
+r = await call(schedule, { method: 'POST', headers: asm, query: { action: 'add-bulk' }, body: { shifts: [
+  { date: '2026-08-12', name: 'KOWAL', start: '06:00', end: '14:00', station: 'MANAGER' },
+  { date: '2026-08-12', name: 'KOWAL', start: '06:00', end: '14:00', station: 'MANAGER' },
+  { date: '2026-08-13', name: 'NOWAK-MGR', start: '14:00', end: '22:00', station: 'MGR FUNKCYJNE' },
+] } });
+T('add-bulk dopisuje i pomija duplikaty', r.code === 200 && r.body.dodane === 2 && r.body.pominiete === 1);
+const poAB = (await kv.get('sched:2026-08')).shifts;
+T('zmiany DOPISANE do istniejących (nie zastąpione)', poAB.length === przedAB + 2);
+T('dopisane mają sid i przypisane konto po nazwisku', poAB.filter((x) => x.dodana).every((x) => x.sid) && poAB.some((x) => x.date === '2026-08-12' && x.accountId === 'uA'));
+T('osoba bez konta raportowana', Object.keys(r.body.nieprzypisane).includes('NOWAK-MGR'));
+r = await call(schedule, { method: 'POST', headers: asm, query: { action: 'add-bulk' }, body: { shifts: [{ date: '2026-08-12', name: 'KOWAL', start: '06:00', end: '14:00' }] } });
+T('ponowny import tego samego = 0 dodanych', r.body.dodane === 0 && r.body.pominiete === 1);
+
 console.log('— DATA-04: audyt niezmienny —');
 T('DELETE audytu → 405', (await call(audit, { method: 'DELETE', headers: asm, query: {} })).code === 405);
 
