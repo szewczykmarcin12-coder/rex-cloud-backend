@@ -95,3 +95,82 @@ zwraca czytelny błąd konfiguracji. Bootstrap działa tylko, gdy klucz nie istn
 - **TNA-05** — dashboard pokazuje alert „bez odbicia po starcie" (zaplanowana zmiana wystartowała
   >15 min temu, brak wejścia na terminalu).
 - **COR-07** — walidacja PIN 4–8 cyfr ujednolicona przy tworzeniu i zmianie.
+
+## v3.3 — Workforce Core (P3: WFM-01/03/05, TNA-06)
+
+- **WFM-01 Publikacja grafiku** — `POST /api/schedule?action=publish` (ASM) tworzy zamrożony
+  snapshot miesiąca (`sched:pub:YYYY-MM`) z numerem wersji. Pracownicy widzą wyłącznie
+  opublikowaną wersję (miesiące sprzed pierwszej publikacji: tryb przejściowy — kopia robocza).
+  Edycje robocze nie zmieniają widoku pracowników do kolejnej publikacji; panel pokazuje różnice
+  (+dodane/±zmienione/−usunięte). Pracownik potwierdza grafik (`?action=confirm`), panel widzi
+  licznik potwierdzeń; nowa wersja zeruje potwierdzenia.
+- **WFM-03 Absencje** — `/api/absences`: wniosek pracownika (urlop / na żądanie / L4 / inne),
+  decyzja ASM/kierownika w panelu (strona „Zamiany i wnioski"), wycofanie własnego wniosku,
+  ochrona przed nakładającymi się zakresami; wpis z panelu = od razu zatwierdzony.
+- **WFM-05 Konflikty grafiku** — dodanie/edycja zmiany: BLOKADA przy nakładaniu się zmian tej samej
+  osoby i przy zatwierdzonej absencji (409 z czytelnym komunikatem); OSTRZEŻENIE przy odpoczynku
+  dobowym < 11 h (zapis przechodzi, panel pokazuje ostrzeżenie).
+- **TNA-06** — zamknięcie / ponowne otwarcie / przegląd tygodnia trafia do audytu z podpisem aktora.
+
+## v3.4 — dostępność, reguły umów, jakość danych (P3: WFM-02/04/12 · P4: dane sprzedażowe)
+
+- **WFM-02 Dostępność** — `/api/availability`: pracownik ustawia tygodniowy wzorzec
+  (dostępny / niedostępny / okno godzin) w aplikacji („Urlopy i wnioski"); propozycja czeka na
+  akceptację kierownika (karta „Propozycje dostępności" w panelu, podświetlone zmienione dni).
+  Po zatwierdzeniu: dzień „niedostępny" BLOKUJE planowanie (409), zmiana poza oknem godzin
+  daje ostrzeżenie.
+- **WFM-04 Umowy i reguły pracy** — konto ma: wymiar tygodniowy (h), maks. godzin na dobę,
+  listę dozwolonych stanowisk (formularz pracownika, sekcja „Reguły pracy"). Planer ostrzega
+  przy przekroczeniu limitu dobowego/tygodniowego i stanowisku poza kwalifikacjami.
+- **WFM-12 Alerty** — badge przy „Giełdzie zamian" sumuje: zamiany do akceptacji + otwarte
+  wnioski urlopowe + oczekujące propozycje dostępności.
+- **P4 / dane sprzedażowe** — import sprzedaży dostaje wersję, znacznik czasu, źródło i autora
+  (audyt `sales.import`); `GET /api/sales` zwraca raport braków z ostatnich 30 dni; zakładka
+  „Dane" w Planowaniu pokazuje pasek jakości danych (świeżość + brakujące dni).
+
+## v3.5 — prognoza i rozliczenia (P4: prognoza dnia, KPI błędu, WFM-10 payroll)
+
+- **Prognoza dnia (P4)** — `/api/forecast`: deterministyczny baseline sezonowy (mediana dnia
+  tygodnia z 8 tygodni × tłumiony trend 4-tyg. 0,85–1,15). Ręczna korekta dnia WYMAGA
+  uzasadnienia i trafia do audytu (`forecast.override`). Panel: sekcja „Jakość prognozy"
+  w Planowaniu (kafelki 14 dni, korekty oznaczone).
+- **KPI błędu prognozy** — backtest MAPE/WAPE na 28 zakończonych dniach; prognoza w backteście
+  liczona wyłącznie z danych sprzed danego dnia (bez zaglądania w przyszłość — kryterium P4).
+- **WFM-10 Payroll** — `GET /api/timesheets?action=payroll&week=YYYY-MM-DD[&format=csv]` (ASM):
+  eksport płatnych minut WYŁĄCZNIE z tygodni CLOSED (409 dla otwartych). Jedna formuła płatnych
+  minut (Actual − przerwy niepłatne, tylko zmiany z realnym wykonaniem) — identyczna z ekranem
+  Actual (kryterium G2/A-15). Zmiany bez odbić raportowane osobno. Eksport audytowany.
+  Panel: przycisk „Payroll CSV" przy zamkniętym tygodniu w Time & Attendance.
+
+## v3.6 — poprawki z raportu weryfikacji P4 (15.08.2026)
+
+Zamknięte zalecenia audytu:
+
+- **P0-1** — payroll za flagą: bez `PAYROLL_ENABLED=true` endpoint zwraca 403 (tryb sandbox).
+- **P0-2 / P4-03** — usunięty OSTATNI syntetyczny Actual (wykres budżetu liczył plan ±5%);
+  wykonanie w budżecie liczone z ts:data; test regresji w repo zakazuje powrotu wzorca.
+- **P0-3** — produkcja fail-closed: bez `SESSION_SECRET` i `ALLOWED_ORIGINS` backend odmawia
+  pracy (503, poza /api/health); frontendy budują lokalny Tailwind (bez Play CDN);
+  xlsx podniesiony do 0.20.3 z cdn.sheetjs.com (łatki ReDoS/prototype pollution).
+- **P4-02 / TNA-06** — CLOSED to stan serwera: `POST /api/timesheets?action=close-week`
+  (ASM/kierownik) i `reopen-week` (tylko ASM, wymaga powodu). PUT odrzuca każdą zmianę flagi
+  closed oraz każdą modyfikację wykonania/dni w zamkniętym tygodniu (409).
+- **WFM-10 kontrakt eksportu** — payroll ma exportId (UUID), wersję per tydzień, sha256 danych
+  (te same dane → identyczny hash), historię eksportów (`payroll:exports`) i nagłówek w CSV.
+- **P4-09** — neutralizacja CSV injection (komórki od `= + - @ TAB` prefiksowane apostrofem).
+- **P4-10** — wszystkie wywołania audytu awaitowane (brak gubienia wpisów na serverless).
+- **P4-11** — forecast waliduje daty prawdziwym parserem (2026-99-99 odpada), wartości
+  skończone 0–5 mln, uzasadnienie 3–200 znaków.
+- **P4-06** — pracownik nigdy nie widzi kopii roboczej (usunięty fallback przejściowy);
+  poprzednie wersje publikacji trafiają do historii append-only (`sched:pubhist:*`),
+  pubinfo zwraca `historiaWersji`.
+- **Q-1 / ENG-03** — `npm test` = `test/smoke.mjs`: 24 asercje pokrywające SEC/DATA/WFM/P4
+  (sesje, wersje, publikacja, absencje, CLOSED, kontrakt payrollu, CSV injection, regresja
+  syntetycznego Actual).
+
+**Uwaga wdrożeniowa:** po tej wersji pracownicy widzą wyłącznie OPUBLIKOWANE miesiące —
+po wdrożeniu opublikuj bieżące miesiące w panelu (WorkRhythm → Schedule → Publikacja grafiku).
+Produkcja wymaga env: `SESSION_SECRET`, `ALLOWED_ORIGINS`; payroll dodatkowo `PAYROLL_ENABLED=true`.
+
+Poza zakresem kodu (wymagają decyzji/infrastruktury): migracja do Postgres z tenant/site
+(P1-1), sesje HttpOnly cookie (P1-2), kolejka offline terminala (P2-1), integracja POS.

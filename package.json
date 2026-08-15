@@ -3,9 +3,14 @@
   "version": "3.0.0",
   "type": "module",
   "description": "Backend API for REX Cloud - Excel schedule import via Upstash Redis",
-  "scripts": { "dev": "vercel dev" },
+  "scripts": {
+    "dev": "vercel dev",
+    "test": "node test/smoke.mjs"
+  },
   "dependencies": {
     "@upstash/redis": "^1.38.0"
   },
-  "engines": { "node": "24.x" }
+  "engines": {
+    "node": "24.x"
+  }
 }

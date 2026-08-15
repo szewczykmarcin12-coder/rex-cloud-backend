@@ -11,6 +11,9 @@ import health from '../lib/health.js';
 import templates from '../lib/templates.js';
 import clock from '../lib/clock.js';
 import audit from '../lib/audit.js';
+import absences from '../lib/absences.js';
+import availability from '../lib/availability.js';
+import forecast from '../lib/forecast.js';
 
 // Jedna funkcja serverless obsługuje wszystkie endpointy /api/*.
 // Dzięki temu projekt zajmuje 1 z 12 dostępnych funkcji na planie Hobby,
@@ -28,6 +31,9 @@ const TRASY = {
   'templates': templates,
   'clock': clock,
   'audit': audit,
+  'absences': absences,
+  'availability': availability,
+  'forecast': forecast,
 };
 
 export default async function handler(req, res) {
@@ -53,6 +59,12 @@ export default async function handler(req, res) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     return res.status(200).json({ success: true, api: 'REX Cloud', dostepne: Object.keys(TRASY), wskazowka: 'Sprawdź stan wdrożenia: /api/health' });
+  }
+
+  // P0-3 (audyt P4): produkcja wymaga jawnych sekretów — bez nich backend odmawia pracy (fail-closed)
+  if (process.env.VERCEL_ENV === 'production' && nazwa !== 'health' && (!process.env.SESSION_SECRET || !process.env.ALLOWED_ORIGINS)) {
+    cors(res, req);
+    return res.status(503).json({ success: false, error: 'Konfiguracja produkcyjna niekompletna: ustaw SESSION_SECRET i ALLOWED_ORIGINS, potem wdróż ponownie. Szczegóły: /api/health.' });
   }
 
   const cel = TRASY[nazwa];
