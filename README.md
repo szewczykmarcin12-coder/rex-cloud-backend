@@ -215,3 +215,26 @@ Poza zakresem kodu (wymagają decyzji/infrastruktury): migracja do Postgres z te
   alias z matrycy grafiku widoczny w dymku (title).
 - **Aplikacja pracownika**: usunięta karta „Moja dostępność" z zakładki Urlopy i wnioski —
   dyspozycyjność ma własną stronę zgodną z wzorcem WorkRhythm.
+
+## v3.8 — Planowanie obsady (zintegrowany moduł Planowanie i popyt)
+
+Nowa domyślna zakładka „Planowanie obsady" spina istniejące silniki w jeden ekran:
+
+- **Pasek tygodnia** (nr tygodnia ISO, nawigacja, „Dzisiaj"), **scenariusze popytu**
+  (bazowy / oszczędny −10% / bezpieczny +10%) i status **Preliminary/Published** liczony
+  z pubinfo (wersja, różnice, potwierdzenia — przycisk „Porównaj").
+- **KPI tygodnia**: Plan/Required Hours (silnik slotowy 15 min zasilany prognozą /forecast),
+  Excess/Deficit, SPLH i COL% względem prognozy sprzedaży, Labor Cost wg stawek kont,
+  Schedule Score (kara za niedobór/nadmiar).
+- **Demand vs Coverage**: wykres 96 slotów (Required vs Scheduled) + **Coverage heatmap**
+  z klikalnymi slotami (szczegóły: wymagane/plan/kto na zmianie).
+- **Zakładki dni** (kropka przy niedoborze, Required/Plan/Coverage dnia) + **Gantt zespołu**:
+  pełne nazwiska, role, kolory stanowisk, ostrzeżenia konfliktów (absencje + dyspozycje),
+  wiersze **„Otwarta zmiana"** generowane z niedoborów (klik = prefill dodania).
+- **Dodaj zmianę** (modal ze wszystkimi walidacjami WFM-05 po stronie backendu),
+  „Szablon dnia" → Blueprints, **Opublikuj grafik** dla miesięcy tygodnia.
+- **Smart Scheduler**: wskaźnik Score, rekomendacje z wpływem (uzupełnij niedobór,
+  skróć nadmiar z wyliczonym kosztem, konflikty dyspozycji) oraz **„Uruchom optymalizator"**
+  — istniejący silnik szablonów dokłada propozycje na rezydualny niedobór („Użyj" = prefill).
+
+Dotychczasowe zakładki „Optymalizacja i prognoza" i „Budżet (COL)" pozostały obok.
