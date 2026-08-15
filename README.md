@@ -249,3 +249,18 @@ Dotychczasowe zakładki „Optymalizacja i prognoza" i „Budżet (COL)" pozosta
   pasek wyboru stanowiska z opcją **„Zastosuj dla wszystkich"** oraz edycją per wiersz w podglądzie.
 - Nowy format zapasowy pliku: prosta tabela XLSX `Nazwisko | Data | Od | Do | [Godziny] | [Stanowisko]`
   (np. arkusz godzin MGR) — daty `RRRR-MM-DD` lub `DD.MM.RRRR`, czasy `HH:MM` lub excelowe.
+
+## v3.10 — Blueprints i ShiftCycles wg wzorca WorkRhythm
+
+- **Blueprints (Szablony tygodniowe)** — nowy układ: biblioteka kart z mini-podglądem godzin
+  Pn–Nd, ulubione (★) i duplikacja (backend: `?action=fav`, `?action=duplicate`; lista zwraca
+  `dniH[7]` i `fav`), panel szczegółu z siatką kategorie (Manager/Kuchnia/Front/Dispatch) × dni
+  („N zmian"), wierszem Open Shift (sloty bez przypisanego konta), stopką statystyk
+  (godziny, peak coverage vs krzywa, przerwy należne, otwarte zmiany) oraz kartą
+  „Zapisz aktualny grafik jako Blueprint". Zastosowanie: modal tygodnia + przypisań slotów.
+- **ShiftCycles (Rotacje cykliczne)** — nowy układ: pasek rotacji (nazwa, ACTIVE DRAFT,
+  śr. coverage, godziny/cykl, weekendy OFF/osobę, konflikty z absencjami), zakładki cykli
+  z datami (Preliminary/Draft), siatka zespołów A/B/C/Liderzy (podział slotów Blueprinta po
+  dominującej kategorii; wzorzec dnia = najczęstszy przedział, etykiety Opening/Lunch/Closing,
+  OFF Regeneracja) z limitem h/tydz. na osobę, sekcja „Obsada vs idealna" (% per dzień)
+  i „Aktywuj ShiftCycles" — nałożenie cykli przez istniejący silnik szablonów.

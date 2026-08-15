@@ -159,6 +159,18 @@ T('osoba bez konta raportowana', Object.keys(r.body.nieprzypisane).includes('NOW
 r = await call(schedule, { method: 'POST', headers: asm, query: { action: 'add-bulk' }, body: { shifts: [{ date: '2026-08-12', name: 'KOWAL', start: '06:00', end: '14:00' }] } });
 T('ponowny import tego samego = 0 dodanych', r.body.dodane === 0 && r.body.pominiete === 1);
 
+console.log('— Blueprints: ulubione i duplikacja —');
+const templates = (await import('../lib/templates.js')).default;
+r = await call(templates, { method: 'POST', headers: asm, query: { action: 'save' }, body: { weekStart: '2026-08-10', name: 'Lunch Peak Standard' } });
+T('zapis Blueprinta z tygodnia grafiku', r.code === 200 && r.body.template.sloty >= 1);
+const tplId = r.body.template.id;
+r = await call(templates, { method: 'POST', headers: asm, query: { action: 'fav' }, body: { id: tplId } });
+T('przełączenie ulubionego', r.code === 200 && r.body.fav === true);
+r = await call(templates, { method: 'POST', headers: asm, query: { action: 'duplicate' }, body: { id: tplId } });
+T('duplikacja szablonu', r.code === 200 && r.body.template.name.includes('(kopia)'));
+r = await call(templates, { method: 'GET', headers: asm, query: {} });
+T('lista z dniH (mini-podgląd) i flagą fav', r.code === 200 && Array.isArray(r.body.templates[0].dniH) && r.body.templates[0].dniH.length === 7 && r.body.templates.some((t) => t.fav));
+
 console.log('— DATA-04: audyt niezmienny —');
 T('DELETE audytu → 405', (await call(audit, { method: 'DELETE', headers: asm, query: {} })).code === 405);
 
