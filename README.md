@@ -76,3 +76,22 @@ zwraca czytelny błąd konfiguracji. Bootstrap działa tylko, gdy klucz nie istn
 3. Ustawienia → **Terminale REX Clock** → dodaj identyfikatory terminali (np. `K003-POS-01`) —
    do tego czasu terminal nie przyjmie odbić.
 4. Karty pracowników przypisz przez `POST /api/accounts?action=card&id=…` (token karty jest hashowany).
+
+## v3.2 — spójność danych i audyt (P2: DATA-02/03/04, COR-01/03, TNA-05)
+
+- **DATA-02** — każda zmiana grafiku ma stabilny `sid` (UUID) nadawany przy imporcie/dodaniu;
+  stare dane dostają sid automatycznie przy pierwszym odczycie. Edycja godzin/osoby/stanowiska
+  nie zmienia tożsamości zmiany.
+- **DATA-03** — każdy miesiąc ma pole `version` podbijane przy każdej mutacji; edycje przyjmują
+  `expectedVersion` i zwracają **409 Conflict** zamiast cichego nadpisania przy równoległej pracy
+  dwóch kierowników. Panel automatycznie odświeża dane po konflikcie.
+- **DATA-04** — niezmienny dziennik audytu (`audit:log`, append-only, bez endpointu kasującego):
+  logowania (udane i nieudane), edycje grafiku (before/after), importy, zamiany, zapisy wykonania,
+  operacje na kontach i terminalach. `GET /api/audit` (ASM) + podgląd w Ustawieniach panelu.
+- **COR-01** — zatwierdzenie zamiany przepisuje także `accountId` — nowy pracownik widzi zmianę,
+  poprzedni nie; obie strony i aktor zapisane w audycie.
+- **COR-03** — wykonanie (Actual) kluczowane po `sid`, więc edycja planu nie osieroca wpisów;
+  usunięcie planu nie dotyka odbić (event store Clock pozostaje nietknięty).
+- **TNA-05** — dashboard pokazuje alert „bez odbicia po starcie" (zaplanowana zmiana wystartowała
+  >15 min temu, brak wejścia na terminalu).
+- **COR-07** — walidacja PIN 4–8 cyfr ujednolicona przy tworzeniu i zmianie.
