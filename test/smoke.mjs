@@ -27,6 +27,8 @@ const { signSession } = await import('../lib/auth.js');
 const schedule = (await import('../lib/schedule.js')).default;
 const timesheets = (await import('../lib/timesheets.js')).default;
 const forecast = (await import('../lib/forecast.js')).default;
+const monthlyForecastMod = await import('../lib/monthly-forecast.js');
+const monthlyForecast = monthlyForecastMod.default;
 const absences = (await import('../lib/absences.js')).default;
 const audit = (await import('../lib/audit.js')).default;
 const { kv } = await import('../lib/_helpers.js');
@@ -173,6 +175,53 @@ T('lista z dniH (mini-podgląd) i flagą fav', r.code === 200 && Array.isArray(r
 
 console.log('— DATA-04: audyt niezmienny —');
 T('DELETE audytu → 405', (await call(audit, { method: 'DELETE', headers: asm, query: {} })).code === 405);
+
+console.log('— P5: miesięczny Forecast + COL —');
+const histSales = {}, histChecks = {};
+for (let i = 1; i <= 70; i++) {
+  const d = new Date('2026-09-01T00:00:00Z'); d.setUTCDate(d.getUTCDate() - i);
+  const ds = d.toISOString().slice(0, 10), w = d.getUTCDay();
+  histSales[ds] = 36000 + (w === 5 || w === 6 ? 9000 : 0) + i * 11;
+  histChecks[ds] = 1250 + (w === 5 || w === 6 ? 280 : 0) + i;
+}
+await kv.set('sales:data', { sales: histSales, checks: histChecks });
+await kv.set('accounts:list', [
+  { id: 'uCrew', name: 'Anna Crew', grafikName: 'CREW', funkcja: 'CREW', umowa: 'UOP', stawka: 5200, wymiarTygH: 40 },
+  { id: 'uMgr', name: 'Marek RGM', grafikName: 'RGM', funkcja: 'RGM', umowa: 'UOP', stawka: 7600, wymiarTygH: 40 },
+  { id: 'uFunc', name: 'Jan SM', grafikName: 'SM', funkcja: 'SM', umowa: 'UOP', stawka: 6500, wymiarTygH: 40 },
+  { id: 'uUz', name: 'Ula Zlecenie', grafikName: 'UZ', funkcja: 'CREW', umowa: 'UZ', stawka: 32, zus: false },
+]);
+const genReq = { method: 'POST', headers: asm, query: { action: 'generate' }, body: {
+  month: '2026-09', monthlySales: 1500000, monthlyTransactions: 60000, expectedVersion: 0,
+  settings: { historyWeeks: 8, targetSplh: 420, targetMpt: 4, indirectPct: 0.12, colTargetPct: 25, managerToleranceHours: 10, fixedHours: { manager: 176, functionalManager: 176, training: 40, managerTraining: 20 }, rates: { crew: 36, manager: 54, functionalManager: 47, training: 36, managerTraining: 50 } },
+} };
+r = await call(monthlyForecast, genReq);
+const p5v1 = r.body.plan;
+T('generowanie planu → 200 i valid', r.code === 200 && r.body.success && p5v1.valid);
+T('suma sprzedaży miesiąca zachowana co do grosza', p5v1.totals.sales === 1500000 && p5v1.days.reduce((a, x) => a + x.sales, 0).toFixed(2) === '1500000.00');
+T('suma transakcji miesiąca zachowana', p5v1.totals.transactions === 60000 && p5v1.days.reduce((a, x) => a + x.transactions, 0) === 60000);
+T('każdy dzień ma 96 slotów 15-min', p5v1.days.length === 30 && p5v1.days.every((x) => x.slots.length === 96));
+T('UOP crew ma zapewniony nominał', p5v1.totals.hours.crew >= p5v1.totals.contractHoursByCategory.crew);
+T('MGR w przedziale etat ±10 h', p5v1.contracts.filter((x) => x.category !== 'crew').every((x) => x.plannedHours >= x.minHours && x.plannedHours <= x.maxHours));
+T('COL ma rozbicie na 5 kategorii', monthlyForecastMod.FORECAST_CATEGORIES.every((c) => Number.isFinite(p5v1.totals.costByCategory[c])));
+
+r = await call(monthlyForecast, { method: 'POST', headers: asm, query: { action: 'adjust' }, body: { month: '2026-09', expectedVersion: p5v1.version, date: '2026-09-05', patch: { sales: 90000, transactions: 3300, hours: { training: 8 } }, reason: 'lokalne wydarzenie' } });
+const p5v2 = r.body.plan;
+T('korekta dnia zapisana i podbija wersję', r.code === 200 && p5v2.version === p5v1.version + 1 && p5v2.days.find((x) => x.date === '2026-09-05').sales === 90000);
+T('po korekcie sumy miesiąca nadal dokładne', p5v2.totals.sales === 1500000 && p5v2.totals.transactions === 60000 && p5v2.totals.hours.training === 40);
+T('stara wersja korekty → 409', (await call(monthlyForecast, { method: 'POST', headers: asm, query: { action: 'adjust' }, body: { month: '2026-09', expectedVersion: p5v1.version, date: '2026-09-06', patch: { sales: 40000 }, reason: 'test konfliktu' } })).code === 409);
+
+r = await call(monthlyForecast, { method: 'POST', headers: asm, query: { action: 'lock' }, body: { month: '2026-09', expectedVersion: p5v2.version } });
+const p5locked = r.body.plan;
+T('poprawny Forecast można zablokować', r.code === 200 && p5locked.status === 'LOCKED');
+const over = await monthlyForecastMod.enforceLockedForecast('2026-09', [{ date: '2026-09-01', station: 'FRYTKI', hours: p5locked.totals.hours.crew + 0.25 }]);
+T('blokada odrzuca przekroczenie godzin grafiku', over.locked === true && over.ok === false && over.violations.some((x) => x.includes('Crew')));
+const scheduleOver = await call(schedule, { method: 'POST', headers: asm, query: { action: 'add' }, body: { date: '2026-09-02', name: 'UZ', accountId: 'uUz', station: 'FRYTKI', start: '00:00', end: '01:00', hours: p5locked.totals.hours.crew + 0.25 } });
+T('API grafiku egzekwuje zablokowany limit Forecast', scheduleOver.code === 409 && scheduleOver.body.forecastLimit === true);
+const publishBlocked = await call(schedule, { method: 'POST', headers: asm, query: { action: 'publish' }, body: { month: '2026-09' } });
+T('publikacja blokowana przy niedoborze godzin UOP', publishBlocked.code === 409 && publishBlocked.body.forecastLimit === true && publishBlocked.body.violations.some((x) => x.includes('UOP')));
+T('zablokowanego planu nie można regenerować', (await call(monthlyForecast, { ...genReq, body: { ...genReq.body, expectedVersion: p5locked.version } })).code === 423);
+T('odblokowanie bez powodu odrzucone', (await call(monthlyForecast, { method: 'POST', headers: asm, query: { action: 'unlock' }, body: { month: '2026-09', expectedVersion: p5locked.version, reason: '' } })).code === 400);
 
 console.log('— P4-03: regresja syntetycznego Actual —');
 try {

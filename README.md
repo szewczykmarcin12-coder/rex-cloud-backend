@@ -264,3 +264,20 @@ Dotychczasowe zakładki „Optymalizacja i prognoza" i „Budżet (COL)" pozosta
   dominującej kategorii; wzorzec dnia = najczęstszy przedział, etykiety Opening/Lunch/Closing,
   OFF Regeneracja) z limitem h/tydz. na osobę, sekcja „Obsada vs idealna" (% per dzień)
   i „Aktywuj ShiftCycles" — nałożenie cykli przez istniejący silnik szablonów.
+
+## v4.0 — P5: miesięczny Forecast i Cost of Labour (`/api/monthly-forecast`)
+
+Pełny opis formuł i porównanie z MAPAL: `../FORECAST_ENGINE_P5.md`; wdrożenie: `../DEPLOY_VERCEL.md`.
+
+- Rozkład dokładnej sprzedaży i transakcji miesiąca na dni wg historii (2–52 tyg., wagi dni
+  tygodnia, metoda największych reszt) — suma miesiąca zachowana co do 0,01 zł i 1 transakcji.
+- Pięć kategorii godzin (crew / MGR / MGR funkcyjne / szkoleniowe / MGR szkoleniowe),
+  popyt z SPLH+MPT+indirect, gwarancja nominałów UOP, kontrola każdego MGR: etat ±10 h.
+- KPI: COL, COL%, SPLH, MPT, koszty kategorii, dostępny bufor; 96 slotów 15-min per dzień.
+- Korekty dnia z uzasadnieniem (3–300 znaków) i automatycznym rebalansem pozostałych dni;
+  wersjonowanie z 409 przy równoczesnej edycji; statusy DRAFT/LOCKED (423 dla zablokowanego).
+- Po zablokowaniu plan EGZEKWUJE limity w API grafiku: edycja/dopisywanie/import ponad godziny
+  lub COL → 409 `forecastLimit`; publikacja blokowana, gdy pracownik UOP nie ma nominału.
+- Audyt: generate / adjust / adjust-clear / lock / unlock (z powodem).
+- Panel: nowa domyślna zakładka „Forecast miesiąca / COL" w module Planowanie i popyt.
+- Frontendy: `VITE_API_BASE` (pliki `.env.example`) — adres backendu konfigurowany w Vercel.
