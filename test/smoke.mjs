@@ -173,6 +173,28 @@ T('duplikacja szablonu', r.code === 200 && r.body.template.name.includes('(kopia
 r = await call(templates, { method: 'GET', headers: asm, query: {} });
 T('lista z dniH (mini-podgląd) i flagą fav', r.code === 200 && Array.isArray(r.body.templates[0].dniH) && r.body.templates[0].dniH.length === 7 && r.body.templates.some((t) => t.fav));
 
+console.log('— Szkolenia: para instruktor↔uczeń —');
+await kv.set('sched:2026-10', { shifts: [
+  { sid: 'shG', date: '2026-10-16', name: 'GNELA', station: 'FRYTKI', start: '10:00', end: '18:00', hours: 8, accountId: 'uG' },
+  { sid: 'shR', date: '2026-10-16', name: 'RYBOWICZ', station: 'KONTROLER', start: '10:00', end: '18:00', hours: 8, accountId: 'uR' },
+  { sid: 'shZ', date: '2026-10-16', name: 'GRZYB', station: 'PREP', start: '10:00', end: '18:00', hours: 8, accountId: 'uZ' },
+  { sid: 'shP', date: '2026-10-16', name: 'PABIAN', station: 'SMAŻENIE', start: '10:00', end: '18:00', hours: 8, accountId: 'uP' },
+], roster: ['GNELA', 'RYBOWICZ', 'GRZYB', 'PABIAN'], meta: {}, version: 1 });
+const idx10 = (await kv.get('sched:index')) || []; if (!idx10.includes('2026-10')) await kv.set('sched:index', [...idx10, '2026-10'].sort());
+r = await call(schedule, { method: 'POST', headers: asm, query: { action: 'szkolenie' }, body: { date: '2026-10-16', instruktor: { sid: 'shR' }, uczen: 'GNELA' } });
+T('para 1: RYBOWICZ szkoli GNELĘ', r.code === 200 && r.body.instruktor === 'RYBOWICZ' && r.body.uczen === 'GNELA');
+r = await call(schedule, { method: 'POST', headers: asm, query: { action: 'szkolenie' }, body: { date: '2026-10-16', instruktor: { sid: 'shP' }, uczen: 'GRZYB' } });
+T('para 2: PABIAN szkoli GRZYBA', r.code === 200 && r.body.uczen === 'GRZYB');
+let m10 = await kv.get('sched:2026-10');
+const gnela = m10.shifts.find((x) => x.sid === 'shG'), grzyb = m10.shifts.find((x) => x.sid === 'shZ');
+T('uczniowie mają właściwych partnerów (bez zamiany par)', gnela.rola === 'training' && gnela.partner === 'RYBOWICZ' && grzyb.rola === 'training' && grzyb.partner === 'PABIAN');
+const techR = m10.shifts.filter((x) => x.rola === 'instruktor');
+T('wiersze techniczne INSTRUKTOR wskazują właściwych uczniów', techR.length === 2 && techR.some((x) => x.name === 'RYBOWICZ' && x.partner === 'GNELA') && techR.some((x) => x.name === 'PABIAN' && x.partner === 'GRZYB'));
+T('instruktor nie może szkolić siebie', (await call(schedule, { method: 'POST', headers: asm, query: { action: 'szkolenie' }, body: { date: '2026-10-16', instruktor: { sid: 'shR' }, uczen: 'RYBOWICZ' } })).code === 400);
+r = await call(schedule, { method: 'POST', headers: asm, query: { action: 'szkolenie' }, body: { date: '2026-10-16', instruktor: { sid: 'shR' }, uczen: null } });
+m10 = await kv.get('sched:2026-10');
+T('rozpięcie pary czyści ucznia i wiersz techniczny', r.code === 200 && !m10.shifts.find((x) => x.sid === 'shG').rola && m10.shifts.filter((x) => x.rola === 'instruktor' && x.name === 'RYBOWICZ').length === 0);
+
 console.log('— DATA-04: audyt niezmienny —');
 T('DELETE audytu → 405', (await call(audit, { method: 'DELETE', headers: asm, query: {} })).code === 405);
 

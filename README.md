@@ -281,3 +281,16 @@ Pełny opis formuł i porównanie z MAPAL: `../FORECAST_ENGINE_P5.md`; wdrożeni
 - Audyt: generate / adjust / adjust-clear / lock / unlock (z powodem).
 - Panel: nowa domyślna zakładka „Forecast miesiąca / COL" w module Planowanie i popyt.
 - Frontendy: `VITE_API_BASE` (pliki `.env.example`) — adres backendu konfigurowany w Vercel.
+
+## v4.0.1 — szkolenia: poprawne pary + rola instruktora
+
+- **Fix**: wiersz instruktorski łączy się wyłącznie ze zmianą TEJ SAMEJ osoby (wcześniej
+  dopasowanie tylko po dacie i nakładaniu godzin — przy dwóch szkoleniach jednego dnia
+  pary wyświetlały się na odwrót). Poprawka w panelu i aplikacji pracownika.
+- **Nowe**: `POST /api/schedule?action=szkolenie` — nadanie roli instruktora i przypisanie
+  ucznia (lub rozpięcie pary): uczeń dostaje `rola=training` + partnera, instruktor równoległy
+  wiersz techniczny INSTRUKTOR na godziny ucznia; zdejmowanie poprzednich par obu stron,
+  walidacje (uczeń musi mieć zmianę, zakaz szkolenia siebie), wersja miesiąca + audyt
+  `schedule.training-pair` / `training-unpair`.
+- Panel: w modalu edycji zmiany (widok dnia) sekcja „Instruktor — szkoli tego dnia"
+  z wyborem ucznia spośród osób ze zmianą w tym dniu (pełne nazwiska z kont).
