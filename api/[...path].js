@@ -60,7 +60,7 @@ export default async function handler(req, res) {
   if (!nazwa) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
-    return res.status(200).json({ success: true, api: 'REX Cloud', dostepne: Object.keys(TRASY), wskazowka: 'Sprawdź stan wdrożenia: /api/health' });
+    return res.status(200).json({ success: true, api: 'ORDO Workforce Cloud', dostepne: Object.keys(TRASY), wskazowka: 'Sprawdź stan wdrożenia: /api/health' });
   }
 
   // P0-3 (audyt P4): produkcja wymaga jawnych sekretów — bez nich backend odmawia pracy (fail-closed).

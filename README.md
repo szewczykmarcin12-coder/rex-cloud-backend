@@ -294,3 +294,33 @@ Pełny opis formuł i porównanie z MAPAL: `../FORECAST_ENGINE_P5.md`; wdrożeni
   `schedule.training-pair` / `training-unpair`.
 - Panel: w modalu edycji zmiany (widok dnia) sekcja „Instruktor — szkoli tego dnia"
   z wyborem ucznia spośród osób ze zmianą w tym dniu (pełne nazwiska z kont).
+
+## v5.0 — ORDO Workforce Cloud (rebranding + Employee Hub T&A)
+
+- **Nowe nazwy**: panel = **ORDO WORKFORCE STUDIO**, aplikacja pracownika = **ORDO EMPLOYEE HUB**
+  (wordmarki na ekranach logowania, sidebarze i w tytułach; jedna paleta maroon + granatowy sidebar).
+- **Rejestracja czasu w Employee Hub** — `GET /api/clock?action=hub-state` i
+  `POST /api/clock?action=hub-event` autoryzowane SESJĄ pracownika (bez rejestru terminali):
+  ta sama maszyna stanów, event store `clock:*` i idempotencja (`clientEventId`);
+  zdarzenia oznaczone `method: 'app'`, `terminal: 'EMPLOYEE-HUB'`. Karta „Rejestracja czasu"
+  na starcie aplikacji: Rozpocznij zmianę → Przerwa (płatna/niepłatna) → Wróć → Zakończ,
+  z planowaną zmianą z OPUBLIKOWANEGO grafiku i historią dzisiejszych odbić.
+- **Terminal REX Clock = wycofywany**: pozostaje w repo i działa (rejestr terminali bez zmian),
+  ale ścieżką docelową jest Employee Hub. Panel (T&A live, Actual, payroll) konsumuje zdarzenia
+  z obu źródeł bez żadnych zmian.
+
+## v5.1 — port układów wzorca ORDO v8
+
+- **ORDO Employee Hub**: pełny układ wzorca (style `ordo-hub.css` = globals + employee z paczki):
+  nagłówek z zakładkami Start / Grafik / Czas / Wnioski / Więcej (+ dolny pasek mobilny),
+  ekran startowy z kartą rejestracji czasu (stany idle/working/break/done, licznik czasu zmiany,
+  potwierdzenia w dialogu wzorca), dzisiejsza zmiana i pasek godzin miesiąca, szybkie akcje,
+  aktywność dnia; Grafik = kalendarz miesięczny z detalem dnia, zespołem (dwuklik) i kartą
+  potwierdzenia publikacji; Czas = karta dzisiaj (zdarzenia z Hub) + nadchodzące zmiany;
+  Wnioski = giełda zamian (zgłoś się / wystaw zmianę) + moje wnioski (dyspozycje, urlopy,
+  zamiany); Więcej = profil, dialogi dyspozycyjności/nieobecności, wylogowanie; moduły
+  Learning/Feed/Prywatność oznaczone jako wyłączone (jak we wzorcu). Wszystko na realnych
+  danych i istniejących endpointach (hub-state/hub-event, availability, absences, swaps,
+  schedule confirm).
+- **ORDO Workforce Studio**: topbar wzorca (breadcrumb ORDO › strona, wyszukiwarka stron
+  [Enter], dzwonek z kropką przy oczekujących wnioskach, awatar) + style `ordo-studio.css`.

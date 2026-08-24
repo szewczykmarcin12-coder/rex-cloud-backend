@@ -195,6 +195,22 @@ r = await call(schedule, { method: 'POST', headers: asm, query: { action: 'szkol
 m10 = await kv.get('sched:2026-10');
 T('rozpięcie pary czyści ucznia i wiersz techniczny', r.code === 200 && !m10.shifts.find((x) => x.sid === 'shG').rola && m10.shifts.filter((x) => x.rola === 'instruktor' && x.name === 'RYBOWICZ').length === 0);
 
+console.log('— ORDO Employee Hub: rejestracja czasu sesją pracownika —');
+const clockH = (await import('../lib/clock.js')).default;
+r = await call(clockH, { method: 'GET', headers: emp, query: { action: 'hub-state' } });
+T('hub-state dla pracownika (stan off)', r.code === 200 && r.body.state === 'off');
+r = await call(clockH, { method: 'POST', headers: emp, query: { action: 'hub-event' }, body: { action: 'clock_in', clientEventId: 'hub-1' } });
+T('wejście z Employee Hub (bez terminala)', r.code === 200 && r.body.state === 'working');
+r = await call(clockH, { method: 'POST', headers: emp, query: { action: 'hub-event' }, body: { action: 'clock_in', clientEventId: 'hub-1b' } });
+T('podwójne wejście odrzucone (409)', r.code === 409);
+r = await call(clockH, { method: 'POST', headers: emp, query: { action: 'hub-event' }, body: { action: 'break_start', breakType: 'unpaid', clientEventId: 'hub-2' } });
+T('przerwa → stan break', r.code === 200 && r.body.state === 'break');
+r = await call(clockH, { method: 'POST', headers: emp, query: { action: 'hub-event' }, body: { action: 'break_end', clientEventId: 'hub-3' } });
+await call(clockH, { method: 'POST', headers: emp, query: { action: 'hub-event' }, body: { action: 'clock_out', clientEventId: 'hub-4' } });
+r = await call(clockH, { method: 'GET', headers: emp, query: { action: 'hub-state' } });
+T('pełny cykl IN→BREAK→OUT zapisany (method=app)', r.code === 200 && r.body.state === 'off' && r.body.events.length === 4 && r.body.events.every((e) => e.method === 'app'));
+T('hub-event wymaga sesji pracownika', (await call(clockH, { method: 'POST', headers: asm, query: { action: 'hub-event' }, body: { action: 'clock_in' } })).code === 403);
+
 console.log('— DATA-04: audyt niezmienny —');
 T('DELETE audytu → 405', (await call(audit, { method: 'DELETE', headers: asm, query: {} })).code === 405);
 
