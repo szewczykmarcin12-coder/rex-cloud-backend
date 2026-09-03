@@ -1,4 +1,7 @@
 {
+  "crons": [
+    { "path": "/api/kpi-nightly", "schedule": "15 3 * * *" }
+  ],
   "headers": [
     {
       "source": "/api/(.*)",

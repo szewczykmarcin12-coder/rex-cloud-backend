@@ -261,6 +261,52 @@ T('publikacja blokowana przy niedoborze godzin UOP', publishBlocked.code === 409
 T('zablokowanego planu nie można regenerować', (await call(monthlyForecast, { ...genReq, body: { ...genReq.body, expectedVersion: p5locked.version } })).code === 423);
 T('odblokowanie bez powodu odrzucone', (await call(monthlyForecast, { method: 'POST', headers: asm, query: { action: 'unlock' }, body: { month: '2026-09', expectedVersion: p5locked.version, reason: '' } })).code === 400);
 
+console.log('— COMPLIANCE: biblioteka reguł prawa pracy —');
+const { ocenZgodnosc } = await import('../lib/compliance.js');
+const kontaT = [{ id: 'uA', name: 'Jan Kowal', grafikName: 'KOWAL', umowa: 'UOP' }];
+let zg = ocenZgodnosc([{ date: '2026-10-05', name: 'KOWAL', start: '14:00', end: '22:00' }, { date: '2026-10-06', name: 'KOWAL', start: '06:00', end: '14:00' }], kontaT);
+T('8 h przerwy między zmianami → ODP_DOBOWY (block)', zg.violations.some((v) => v.code === 'ODP_DOBOWY' && v.level === 'block'));
+zg = ocenZgodnosc([{ date: '2026-10-07', name: 'KOWAL', start: '07:00', end: '12:00' }, { date: '2026-10-07', name: 'KOWAL', start: '12:00', end: '16:00' }], kontaT);
+T('dzielona zmiana 7–12 + 12–16 bez fałszywego alarmu', zg.summary.block === 0 && zg.summary.warn === 0);
+zg = ocenZgodnosc([{ date: '2026-10-08', name: 'KOWAL', start: '06:00', end: '19:00' }], kontaT);
+T('13 h w dobie → DZIEN_12H (block)', zg.violations.some((v) => v.code === 'DZIEN_12H' && v.level === 'block'));
+zg = ocenZgodnosc([{ date: '2026-10-05', name: 'KOWAL', start: '14:00', end: '22:00' }, { date: '2026-10-06', name: 'KOWAL', start: '10:00', end: '18:00' }], kontaT);
+T('doba pracownicza UOP → ostrzeżenie', zg.violations.some((v) => v.code === 'DOBA_PRACOWNICZA' && v.level === 'warn') && zg.summary.block === 0);
+zg = ocenZgodnosc(['05', '06', '07', '08', '09', '10', '11'].map((d) => ({ date: `2026-10-${d}`, name: 'KOWAL', start: '08:00', end: '16:00' })), kontaT);
+T('7 dni / 56 h / brak 35 h → trzy ostrzeżenia tygodniowe', ['DNI_7', 'TYDZIEN_48H', 'ODP_TYGODNIOWY'].every((c) => zg.violations.some((v) => v.code === c)));
+zg = ocenZgodnosc([{ date: '2026-10-05', name: 'KOWAL', start: '22:00', end: '06:00' }, { date: '2026-10-06', name: 'KOWAL', start: '17:00', end: '23:00' }], kontaT);
+T('zmiana nocna 22–06 liczona przez północ (11 h zachowane)', !zg.violations.some((v) => v.code === 'ODP_DOBOWY'));
+
+console.log('— COMPLIANCE: bramka publikacji —');
+await call(schedule, { method: 'PUT', headers: asm, query: {}, body: { shifts: [
+  { date: '2026-10-05', name: 'KOWAL', station: 'FRYTKI', start: '14:00', end: '22:00', hours: 8 },
+  { date: '2026-10-06', name: 'KOWAL', station: 'FRYTKI', start: '06:00', end: '14:00', hours: 8 },
+], meta: { year: 2026, month: 9 } } });
+let rp = await call(schedule, { method: 'POST', headers: asm, query: { action: 'publish' }, body: { month: '2026-10' } });
+T('publikacja z naruszeniem block → 409 compliance', rp.code === 409 && rp.body.compliance === true && rp.body.violations.length >= 1);
+rp = await call(schedule, { method: 'POST', headers: asm, query: { action: 'publish' }, body: { month: '2026-10', force: true } });
+T('wymuszenie bez uzasadnienia → 400', rp.code === 400);
+rp = await call(schedule, { method: 'POST', headers: asm, query: { action: 'publish' }, body: { month: '2026-10', force: true, reason: 'zgoda pracownika na dodatkową zmianę' } });
+T('wymuszenie z uzasadnieniem publikuje', rp.code === 200 && rp.body.success === true);
+const audLog = await kv.get('audit:log');
+T('wymuszona publikacja odnotowana w audycie', Array.isArray(audLog) && audLog.some((e) => e.action === 'schedule.publish-forced'));
+const complianceH = (await import('../lib/compliance.js')).default;
+const rc = await call(complianceH, { method: 'GET', headers: asm, query: { month: '2026-10' } });
+T('GET /compliance zwraca naruszenia miesiąca', rc.code === 200 && rc.body.summary.block >= 1 && Array.isArray(rc.body.reguly));
+
+console.log('— KPI snapshoty (cron) + jednostka —');
+const kpiH = (await import('../lib/kpi.js')).default;
+const rk = await call(kpiH, { method: 'GET', headers: asm, query: { job: 'nightly', date: '2026-10-06' }, url: '/api/kpi-nightly?job=nightly' });
+T('snapshot KPI dnia liczy plan i naruszenia', rk.code === 200 && rk.body.snapshoty[0].planH >= 8 && rk.body.snapshoty[0].naruszenia.block >= 1);
+T('cron bez sekretu i bez sesji → 401', (await call(kpiH, { method: 'GET', headers: {}, query: {}, url: '/api/kpi-nightly' })).code === 401);
+const rk2 = await call(kpiH, { method: 'GET', headers: asm, query: { days: 30 }, url: '/api/kpi' });
+T('odczyt snapshotów do Analityki', rk2.code === 200 && rk2.body.snapshots.length >= 1);
+const orgH = (await import('../lib/org.js')).default;
+const ro = await call(orgH, { method: 'PUT', headers: asm, query: {}, body: { name: 'Testowa', code: 'PLK 1' } });
+T('konfiguracja jednostki zapisana przez ASM', ro.code === 200 && ro.body.unit.name === 'Testowa');
+T('pracownik może odczytać jednostkę', (await call(orgH, { method: 'GET', headers: emp, query: {} })).body.unit.code === 'PLK 1');
+T('pracownik nie zmieni jednostki → 403', (await call(orgH, { method: 'PUT', headers: emp, query: {}, body: { name: 'X' } })).code === 403);
+
 console.log('— P4-03: regresja syntetycznego Actual —');
 try {
   const app = readFileSync(new URL('../../rex-cloud-admin/src/App.jsx', import.meta.url), 'utf-8');

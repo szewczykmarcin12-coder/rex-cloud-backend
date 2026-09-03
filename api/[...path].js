@@ -15,6 +15,9 @@ import absences from '../lib/absences.js';
 import availability from '../lib/availability.js';
 import forecast from '../lib/forecast.js';
 import monthlyForecast from '../lib/monthly-forecast.js';
+import compliance from '../lib/compliance.js';
+import kpi from '../lib/kpi.js';
+import org from '../lib/org.js';
 
 // Jedna funkcja serverless obsługuje wszystkie endpointy /api/*.
 // Dzięki temu projekt zajmuje 1 z 12 dostępnych funkcji na planie Hobby,
@@ -36,6 +39,10 @@ const TRASY = {
   'availability': availability,
   'forecast': forecast,
   'monthly-forecast': monthlyForecast,
+  'compliance': compliance,
+  'kpi': kpi,
+  'kpi-nightly': kpi,
+  'org': org,
 };
 
 export default async function handler(req, res) {

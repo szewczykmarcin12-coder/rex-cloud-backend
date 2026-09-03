@@ -324,3 +324,276 @@ Pełny opis formuł i porównanie z MAPAL: `../FORECAST_ENGINE_P5.md`; wdrożeni
   schedule confirm).
 - **ORDO Workforce Studio**: topbar wzorca (breadcrumb ORDO › strona, wyszukiwarka stron
   [Enter], dzwonek z kropką przy oczekujących wnioskach, awatar) + style `ordo-studio.css`.
+
+## v5.2 — Studio 1:1 ze wzorcem ORDO v8
+
+- **Shell panelu przeniesiony wprost z demo** (style `demo-views.css` + `globals.css` z paczki):
+  stały granatowy sidebar z lockupem ORDO / Workforce Studio, przełącznikiem restauracji,
+  sekcjami GŁÓWNE / WORKFORCE / ZESPÓŁ / NARZĘDZIA (badge przy wnioskach, live-dot przy T&A),
+  linkiem „ORDO Employee Hub" (env `VITE_HUB_URL`), Ustawieniami, Wyloguj i kartą użytkownika.
+- **Topbar wzorca**: pełna wyszukiwarka („Szukaj pracownika, zmiany lub raportu…", Enter
+  nawiguje po modułach), wiadomości, dzwonek z kropką przy oczekujących decyzjach, awatar.
+- **Nagłówki wszystkich stron** w stylu wzorca: eyebrow „● ORDO WORKFORCE STUDIO",
+  duży tytuł, opis i akcje po prawej (`page-heading`); karty statystyk Dashboardu
+  w formacie `metric-card` z paskiem postępu.
+
+## v5.3 — Studio: paleta i Dashboard 1:1 z demo
+
+- **Paleta contentu Studio wyrównana do wzorca**: treści paneli w neutralnym atramencie
+  z indygo akcentami (#5571e0) jak w demo (maroon pozostaje paletą Employee Hub);
+  przyciski primary/date w klasach wzorca.
+- **Dashboard przeniesiony 1:1** (klasy demo, realne dane): karty metryk (prognoza sprzedaży
+  z /forecast, plan godzin, pokrycie popytu, Cost of Labour), panel „Popyt kontra zespół"
+  (słupki potrzeb + linie plan/rzeczywista z odbić, suwak godziny, znacznik TERAZ, podsumowanie
+  godziny), „Ryzyka zmiany" (luka obsady, brak odbicia po starcie, zgodność odbić — liczone
+  na żywo), „Na zmianie teraz" (z event store Clock/Hub) i „Puls operacyjny" (score z pokrycia,
+  kosztów i zgodności czasu).
+
+## v5.4 — Schedule hub 1:1 z demo (WORKFORCE • WEEKLY ROTAS)
+
+- Lista tygodni WorkRhythm (zakładki Schedule / Actual / T&A) w układzie wzorca:
+  ModuleHeading z kickerem, pasek Work Center + podsumowanie (do ułożenia / do zamknięcia /
+  closed) + wyszukiwarka i filtr statusów, tabela `rota-list` z chipem etapu
+  (In progress / Completed / Reviewed / Closed), przełącznikami statusów (Completed hurtowo
+  dla całego tygodnia — nowe `tsSetCompletedWeek`; Closed przez akcje serwera), realnymi
+  godzinami i kosztem tygodnia, menu opcji (podgląd, Actual, Payroll CSV dla Closed,
+  ponowne otwarcie) oraz stopką z legendą.
+- Dialog wzorca „Nowy grafik tygodniowy": wybór poniedziałku + punkt startowy
+  (pusty grafik / Blueprint z automatycznymi przypisaniami) → od razu otwiera siatkę.
+
+## v5.5 — siatka tygodniowa 1:1 z demo (weekly rota grid)
+
+- Widok tygodnia w WorkRhythm w układzie wzorca: nagłówek tygodnia z sumami (godziny, koszt,
+  sprzedaż) i przepływem statusów Completed → Reviewed → Closed (realne akcje, Closed przez
+  serwer), pasek filtrów (szukaj pracownika, Kierownictwo/Crew), siatka `weekly-shift-grid`
+  ze stałą kolumną pracowników (inicjały, funkcja, umowa), nagłówkami dni (data + prognoza
+  sprzedaży + „Otwórz dzień"), pigułkami zmian w tonach wzorca (deep/mid/soft wg kategorii
+  stanowiska, 🎓 dla szkolących, klik = pełna edycja z instruktorem), komórkami WOLNE
+  (klik = dodanie zmiany), kolumną plan/umowa z alertem odchyłki, wierszem sum dziennych
+  (h + liczba osób) i stopką z legendą. Cała dotychczasowa logika edycji zachowana.
+
+## v5.6 — dzienny Gantt 1:1 z demo (daily-gantt-board)
+
+- Widok dnia (Planowanie) w klasach wzorca: nagłówek godzin 06:00→01:00, wiersze podsumowań
+  (praca pośrednia / bezpośrednia / personel idealny / obsada w planie — z silnika popytu,
+  niedobór na czerwono), pasek POKRYCIE CO 15 MIN (80 slotów; klik podświetla osoby
+  pracujące w slocie i wygasza resztę), krzywa ZAPOTRZEBOWANIE VS PLAN, wiersze pracowników
+  z paskami zmian w tonach wzorca (🎓 przy szkolących; klik = pełna edycja z instruktorem;
+  przeciągnięcie po pustym torze = nowa zmiana z podglądem ghost), znacznik „teraz",
+  pasek KPI (koszt, koszt/sprzedaż, godziny, nadmiar, niedobór).
+
+## v5.7 — oficjalna paleta ORDO (bez zieleni, złota i gradientów)
+
+- Studio i Employee Hub przemapowane na paletę: #3F0B1C / #741334 / #A7465F / #B86D82 /
+  #F0E4E8 / tło #F3EFF0 / linie #E3D8DB / tekst #321B23 / #806D74 / #FFFFFF.
+- Usunięte indygo/granat ze Studio, zieleń i złoto z akcentów (statusy, wykresy, heatmapy,
+  legendy → tony maroon; stany ujemne = rubin #8E1B3C w rodzinie). Wszystkie gradienty
+  (CSS i inline) spłaszczone do jednolitych kolorów. Chłodne odcienie w arkuszach demo
+  przesunięte hue→340°. Kolory stanowisk (kodowanie funkcjonalne pasków/wydruku) zachowane.
+
+## v5.9 — gęstość interfejsu + zwijany sidebar (Studio)
+
+- Skala jak w demo: sidebar 202 px, topbar 56 px, mniejsze nagłówki/przyciski/odstępy.
+- Desktop: przycisk zwijania sidebara do samych ikon (60 px, tooltipy, zapamiętane w localStorage).
+- Mobile (<780 px): hamburger w topbarze otwiera sidebar jako wysuwany drawer ze scrimem i X.
+
+## v6.0 — karta wydruku dnia 1:1 z demo + pełny ekran
+
+- Nowa karta „Grafik dzienny" (A4 poziomo, klasy ordo-print-*): nagłówek ORDO, pasek 6 KPI
+  (pracownicy, zmiany, godziny planu, godziny managerów, pokrycie, koszt szacowany wg stawek),
+  tabela obsady per osoba (funkcja, godziny, stanowiska, przerwa, mini-oś 06→02 z paskami),
+  sekcje 02 Pokrycie godzinowe (IDEAŁ/PLAN, niedobór/zapas), 03 Podsumowanie godzin,
+  04 Priorytety zmiany + podpisy managera otwierającego/zamykającego. Szarości + maroon.
+- W widoku dnia przycisk „Drukuj ten dzień" otwiera kartę od razu dla bieżącego dnia
+  (wybór dnia tylko z poziomu tygodnia). Przycisk „Pełny ekran" w nagłówku planowania.
+
+## v6.1 — logowanie Studio 1:1 + strona Obsada LIVE
+
+- Nowy ekran logowania panelu: dzielona karta (formularz z ikonami, pokaż hasło, „Pozostań
+  zalogowany", reset hasła) + maroon hero z listą modułów. Zgodny ze screenem wzorca.
+- Nowa pozycja GŁÓWNE → Obsada LIVE (Live Command): KPI na żywo (obecni/potrzeba z odbić
+  Employee Hub, przerwy, godziny i COL do teraz), krzywa dnia popyt/plan/realnie (klik w
+  godzinę), asystent zmiany (wykrywa pierwszą lukę względem silnika popytu), stacje operacyjne
+  (widok Stacje/Osoby), oś zdarzeń z odbić i sugerowany plan przerw. Odświeżanie co 15 s.
+
+## v6.2 — Time & Attendance i Pracownicy 1:1 z demo
+
+- Time & Attendance: pełny układ wzorca (KPI: obecni teraz/zaplanowani, godziny zrealizowane
+  vs plan, wyjątki, koszt rzeczywisty wg stawek) + tabela kart czasu per osoba (plan, wejście,
+  wyjście, łącznie, różnica, chipy statusów: Zatwierdzone / Na zmianie / Na przerwie /
+  Spóźnienie / Brak wejścia / Brak wyjścia) z nawigacją dni, filtrem i szukajką.
+  Panel „Źródło zdarzeń: ORDO Employee Hub" i „Gotowość dnia" z checklistą rozliczenia,
+  eksport CSV raportu, „Zamknij dzień" (Completed; zablokowane przy otwartych wyjątkach).
+- Pracownicy i konta: układ wzorca (nagłówek, 4 KPI zespołu, zakładki Wszyscy/UOP/Zlecenie/
+  Alerty, tabela: plan miesiąca vs cel z paskiem, bilans ±, kwalifikacje-chipy, login).
+  Wszystkie akcje zachowane: edycja kont, reset PIN, usuwanie, przypisywanie zmian,
+  panel nazw bez konta, eksport CSV.
+
+## v6.3 — Dyspozycyjność, Analityka i Import/eksport 1:1 z demo
+
+- Dyspozycyjność: układ wzorca — KPI (do decyzji, konflikty, zaakceptowane, okno dyspozycji),
+  trzy kolejki (Preferencje pracowników, Absencje i urlopy, Giełda zamian) z chipami statusów
+  i modalem decyzji (zatwierdź/odrzuć → realne endpointy availability/absences), panel
+  „Obieg grafiku" z krokami publikacji miesiąca (realny pubinfo + przycisk publikacji)
+  i „Pokrycie dostępnością" następnego tygodnia liczone z zatwierdzonych dyspozycji.
+- Nowa strona Analityka (NARZĘDZIA): KPI COL R12/SPLH/godziny/zgodność, wykres sprzedaż vs
+  COL z 12 miesięcy (realne agregaty koszt/sprzedaż), wnioski heurystyczne, donut struktury
+  roboczogodzin (Crew/Manager/Mgr funkcyjny/Szkolenia), kompletność danych okresu, eksport CSV.
+- Import / eksport godzin: nagłówek wzorca + karty raportów (Obsada dzienna CSV, Plan szkoleń
+  CSV z par instruktor–uczeń, Dziennik audytu), „Gotowość rozliczenia" miesiąca i „Ślad zmian"
+  z realnego audytu. Wszystkie dotychczasowe narzędzia importu/eksportu XLSX zachowane poniżej.
+
+## v6.4 — Planowanie i popyt 1:1 z demo (silnik P5 pod spodem)
+
+- Widok wg wzorca: lewy panel „ZAŁOŻENIA / Budżet wejściowy" (sprzedaż netto, transakcje,
+  docelowy COL), scenariusze popytu (Bazowy / Wzrost +8% / Eventy lokalne — skalują wejście
+  silnika), notka modelu hybrydowego i przycisk „Przelicz i wygeneruj plan".
+- KPI: Sprzedaż, Budżet COL (z buforem), Godziny total, SPLH+MPT. Wykres „Rozkład dni —
+  prognoza sprzedaży i godzin" ze słupkami sprzedaży, słupkami godzin i znacznikami korekt.
+- „Struktura planu" (5 kategorii godzin z paskami i strażnikiem UOP) i „Kontrola planu —
+  warunki brzegowe" (UOP, obsada MGR, limit COL, SPLH, zgodność grafiku). „Otwórz reguły
+  optymalizacji" pokazuje parametry zaawansowane (stawki, tolerancje, święta).
+- „Plan dzień po dniu" w tabeli wzorca ze statusami Gotowy/Do korekty i akcją Koryguj
+  (przypięcie dnia + rebalans reszty miesiąca). Zachowane: gwarancja godzin UOP z nominałami,
+  profil 96 slotów wybranego dnia, LOCK/UNLOCK z egzekwowaniem limitów oraz eksport CSV.
+
+## v6.5 — ekran logowania Employee Hub 1:1 (karta dzielona na desktopie)
+
+- Na ekranach ≥760 px logowanie to wyśrodkowana karta dzielona: maroon hero po lewej
+  (logo ORDO EMPLOYEE HUB, „TWÓJ DZIEŃ PRACY", hasło przewodnie, copy i notka
+  „Bezpieczny dostęp pracowniczy") + biały formularz po prawej („WITAJ PONOWNIE /
+  Zaloguj się", pola z ikonami i podglądem hasła, „Pozostań zalogowany",
+  „Nie pamiętam hasła", przycisk „Zaloguj się →", notka o bezpiecznym połączeniu,
+  stopka). Na telefonie układ pozostaje kolumnowy. Logika logowania bez zmian.
+
+## v6.6 — WorkRhythm bez starego chrome (Schedule/Actual/Blueprints/ShiftCycles/T&A)
+
+- Usunięty stary nagłówek „WorkRhythm" i biała belka zakładek — nawigacja wyłącznie
+  z sidebara, każdy widok jest pełną stroną wzorca (module-heading + panel).
+- Widok tygodnia/dnia: nowy nagłówek (WORKFORCE • SCHEDULE • zakres, tytuł Grafik
+  tygodniowy/dzienny, akcje: Lista tygodni, Pełny ekran, Drukuj, Zamknij dzień,
+  Zapisz/odśwież) + pasek nawigacji w stylu wzorca (◀ tydzień ▶, Cały tydzień,
+  chipy dni z liczbą zmian, statusy Completed/Reviewed/Closed, autozapis).
+- Time & Attendance renderuje się solo (bez listy tygodni pod spodem); hinty i
+  zdublowany pasek Work Center usunięte; karta publikacji przeniesiona pod listę
+  tygodni; Blueprints i ShiftCycles dostały nagłówki wzorca.
+
+## v6.7 — domknięcie palety: ShiftCycles, chipy szablonów, kategorie Forecast
+
+- Zespoły rotacji w ShiftCycles: zamiast zieleni/błękitu/bursztynu — róż maroon (A),
+  elegancka szarość (B), stonowany róż (C) i antracytowo-śliwkowy blok Liderów.
+- Chipy szablonów zmian, sekcja Absencja, karty „Szkoleniowe", notki ostrzegawcze
+  (dawne bursztynowe #fff8e6) i kolory kategorii w Forecast (crew/MGR/funk./szkol.)
+  przemapowane na maroon + szarości/antracyt. Kolory stanowisk (kodowanie funkcjonalne)
+  celowo bez zmian.
+
+## v7.0 — paleta barw ORDO v15 (PALETA_BARW_ORDO.md)
+
+- Arkusze wzorca podmienione na wersję 15 (globals + demo-views + employee) w obu aplikacjach;
+  zachowane nasze rozszerzenia (gęstość i zwijany sidebar, ekrany logowania).
+- Tokeny UI w kodzie: tekst #2B171E, drugorzędny #71656A, linie #E3DCDD, tło #F7F5F5,
+  Soft Rose #F1E4E8, błąd/alarm #B94352.
+- Pastelowe kolory zmian wdrożone spójnie: Kierownictwo (lawenda #E9E3F1), Operacje/sala
+  (błękit #E2EEF8), Produkcja/kuchnia (róż #F6E1E9), Kontrola (#EEE9F5 + lewa linia maroon),
+  Wolne (#D7D2D8) — w siatce tygodniowej (z legendą), dziennym Gantcie, kalendarzu
+  Employee Hub i na wydruku A4 (klasy print-shift-*).
+
+## v7.1 — naprawa pasteli w Schedule + błękitny pasek pokrycia
+
+- Widoki WorkRhythm dostały klasę .workforce-view — zmienne pastelowych kolorów zmian
+  (lead/operations/production/control) z arkusza v15 są teraz widoczne dla siatki
+  tygodniowej i dziennego Gantta: piguły i paski mają tła, ramki i kolory tekstu
+  dokładnie jak w demo (Kontrola z lewą linią maroon, WOLNE w szarości).
+- Pasek POKRYCIE CO 15 MIN w błękicie Dispatchera: pełne sloty #6E98B8, częściowe #C9DCEC.
+
+## v7.2 — czytelny toolbar Schedule + prawdziwy tryb pełnego ekranu
+
+- Usunięty nieczytelny pasek chipów dni. Widok tygodniowy = czysty panel wzorca
+  (strzałka powrotu do listy w nagłówku panelu, statusy Completed/Reviewed/Closed w środku).
+- Widok dzienny: toolbar wzorca „◀ Wtorek, 4 sierpnia ▶ • Początek tygodnia" + filtry
+  „Szukaj osoby" i „Wszystkie stanowiska" (realnie filtrują wiersze Gantta).
+- Pełny ekran: zamiast trybu przeglądarki — widok fokus wzorca (klasa gantt-fullscreen):
+  cała przestrzeń dla grafiku bez sidebara i topbaru, nagłówek z logo ORDO, kontekstem
+  i narzędziami (Wydruk, Zamknij dzień, Zapisz, Zamknij), podpowiedź ESC wychodzi z widoku.
+
+## v8.0 — paleta ORDO v16 (spec wdrożeniowa)
+
+- Tokeny v16 (--ordo-*, --workforce-*, --shift-*, --actual-*) dodane w Studio i Hub.
+- Pastelowe rodziny zmian w wersji srebrno-antracytowej: Kierownictwo #E8E7ED/#AAA6B2,
+  Operacje/sala #E3EBEF/#96AAB5, Produkcja/kuchnia #EEE9EA/#B5A6AB, Kontrola #E7E9EB/#9DA4AA
+  (+ lewa linia maroon), Wolne #D5D9DD — spójnie w siatce tygodnia, dziennym Gantcie,
+  kalendarzu Employee Hub i wydruku A4.
+- Pasek POKRYCIE CO 15 MIN wg spec: pełne #59636B (antracyt), częściowe #AEB7BE, puste #EDF0F2.
+- Burgund pozostaje wyłącznie marką: sidebar, CTA, focus, linia „teraz", zaznaczenia.
+- Tokeny palety Actual (plan srebrny / wykonanie niebieskoszare / przerwa / wyjątek) gotowe
+  w :root do użycia w widoku wykonania.
+
+## v8.1 — zoom osi 60/30/15 + Actual w semantyce v16
+
+- Dzienny Gantt ma realny zoom osi: 60 min (1200 px), 30 min (2160 px), 15 min (3600 px) —
+  selektor w toolbarze dnia, geometria pasków przelicza się automatycznie.
+- Widok Actual (zakładka Wykonanie / moduł Actual): plan zmiany jako jasny srebrny podkład
+  (#E9ECEF/#C3C9CF), wykonanie z odbić Employee Hub jako niebieskoszara nakładka
+  (#DFE9EE/#91A8B5) pozycjonowana z realnych czasów karty, statusy „zgodne / w trakcie /
+  wyjątek / brak odbicia / brak wyjścia" (wyjątek lokalnie #F0E6E8/#C99FA8, nigdy całym
+  wierszem), krzywa WYKONANIE VS PLAN, pasek pokrycia liczony z wykonania, KPI
+  KOSZT ACTUAL i GODZINY WYKONANE. Legenda plan/wykonanie w toolbarze.
+- Wejście z modułu Actual domyślnie otwiera tryb Wykonanie; z Schedule — Planowanie.
+  Tabela korekt wykonania pozostaje pod Ganttem bez zmian.
+
+## v8.2 — eksport godzin 1:1 z szablonem „Układ poziomy - plan"
+
+- Matryca eksportu zgodna z szablonem docelowego systemu: A1 = rok (tekst), nagłówki DD/MM
+  co dwie kolumny, czasy jako tekst HH:MM (zero-padding), kolumna SUMA [h] z formułą
+  szablonu oraz ukryte formuły pomocnicze BM+ przeliczające pary godzin (także nocne).
+- Wiersze = pełny skład (wszystkie konta, również osoby bez zmian — puste wiersze jak
+  w szablonie) + nazwy z grafiku bez konta; nazwa pliku wg wzorca
+  „Układ poziomy - plan_RRRR-MM-01_RRRR-MM-DD.xlsx".
+- Scalanie zmian: kilka zmian jednej osoby w tym samym dniu eksportuje się jako JEDEN
+  zakres min start – max koniec (np. 7–12 + 12–16 → 07:00–16:00), ze wsparciem zmian
+  przez północ — import „grafiku optymalnego" nie dostanie już „nieznanego formatu".
+- Zweryfikowane testem: struktura vs szablon, scalanie, noce 22–06/16–02, roundtrip
+  własnego importu.
+
+## v8.3 — eksport: stała geometria szablonu (fix „Niepoprawny plik")
+
+- Przyczyna odrzucenia importu: szablon „grafiku optymalnego" ma STAŁY układ 31 par kolumn
+  niezależnie od długości miesiąca — SUMA [h] zawsze w kolumnie BL, formuły pomocnicze
+  zawsze od BM. Nasz eksport dla miesięcy <31 dni przesuwał te kolumny.
+- Teraz eksport zawsze rezerwuje 31 par (puste pary dla brakujących dni), SUMA [h] w BL,
+  komplet 31 formuł pomocniczych BM–DU oraz tekstowy format komórek (@) jak we wzorcu.
+- Zweryfikowane wprost na przesłanym wrześniowym pliku docelowego systemu: nagłówki,
+  pozycje kolumn 60–65 i formuły identyczne; scalanie zmian i roundtrip bez zmian.
+
+## v9.0 — etap A/C z analizy rozwoju: zgodność z prawem pracy, sprzedaż godzinowa, snapshoty KPI, jednostka
+
+### Silnik zgodności z prawem pracy (lib/compliance.js)
+- Biblioteka reguł z kodami i poziomami: ODP_DOBOWY (11 h, blokada), DZIEN_12H (blokada),
+  ODP_TYGODNIOWY (35 h), DOBA_PRACOWNICZA (UOP), TYDZIEN_48H, DNI_7 (ostrzeżenia).
+  Dzielone zmiany tego samego dnia i zmiany przez północ obsługiwane poprawnie.
+- GET /api/compliance?month=YYYY-MM[&from&to] — ocena z kontekstem sąsiednich miesięcy.
+- Bramka publikacji: twarde naruszenia → 409 { compliance, violations }; ASM może wymusić
+  publikację (force + uzasadnienie ≥ 5 znaków) — wpis audytu schedule.publish-forced.
+- Studio: chip „Zgodność" w widoku tygodnia/dnia i w trybie pełnoekranowym z listą naruszeń
+  i opisem reguł; dialog wyjątku przy publikacji (Dyspozycyjność, karta publikacji, WorkRhythm).
+
+### Sprzedaż godzinowa → realny profil popytu
+- PUT /api/sales { hourly: { 'YYYY-MM-DD': { 'HH': { sales, trx } } } } (walidacja, audyt
+  sales.import-hourly, uzupełnianie sum dziennych). GET zwraca hourly + hourlyProfile
+  (średni udział godziny per dzień tygodnia z ostatnich 8 tygodni).
+- Silnik popytu (optRozbicie) używa realnego profilu zamiast syntetycznej krzywej, gdy dane są.
+- Import / eksport: karta „Sprzedaż godzinowa (CSV)" (data;godzina;sprzedaż;transakcje).
+- Obsada LIVE pokazuje realną sprzedaż POS dla godziny, gdy jest w bazie.
+
+### Snapshoty KPI + Vercel Cron
+- /api/kpi-nightly (03:15 UTC, Authorization: Bearer CRON_SECRET lub sesja ASM) liczy dzień:
+  plan h, wykonane h, koszt plan/actual, sprzedaż, COL, SPLH, naruszenia, Completed.
+- /api/kpi?days=N — odczyt; Analityka: panel „Snapshoty nocne" + przelicz 7 dni.
+- vercel.json: crons; health pokazuje CRON_SECRET.
+
+### Jednostka (work center)
+- /api/org (GET każda rola, PUT ASM) — kod, nazwa, miasto, marka, region, godziny otwarcia.
+- Ustawienia → karta „Jednostka"; nagłówki, work center, wydruk A4 i lokalizacja w Hub czytają konfigurację.
+
+Testy: 93 PASS (17 nowych: reguły, bramka publikacji, cron, org).
+Konfiguracja Vercel: dodaj zmienną CRON_SECRET (dowolny losowy ciąg) w projekcie backendu.
