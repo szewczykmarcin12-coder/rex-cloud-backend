@@ -307,6 +307,26 @@ T('konfiguracja jednostki zapisana przez ASM', ro.code === 200 && ro.body.unit.n
 T('pracownik może odczytać jednostkę', (await call(orgH, { method: 'GET', headers: emp, query: {} })).body.unit.code === 'PLK 1');
 T('pracownik nie zmieni jednostki → 403', (await call(orgH, { method: 'PUT', headers: emp, query: {}, body: { name: 'X' } })).code === 403);
 
+console.log('— Dyspozycje: zgłoszenie całego miesiąca + wariant od–do —');
+const availH = (await import('../lib/availability.js')).default;
+const kontaBak = (await kv.get('accounts:list')) || [];
+if (!kontaBak.some((k) => k.id === 'uA')) await kv.set('accounts:list', [...kontaBak, { id: 'uA', name: 'Jan Kowal', grafikName: 'KOWAL', aliasy: [], login: 'JANKOW001', funkcja: 'CREW', umowa: 'UZ', stawka: 30 }]);
+const oknoB = (await call(availH, { method: 'GET', headers: emp, query: { window: '1' } })).body.okno;
+const targetM = oknoB.targetMonth;
+await call(availH, { method: 'POST', headers: asm, query: { action: 'window' }, body: { open: true } });
+let rb = await call(availH, { method: 'POST', headers: emp, query: { action: 'request-bulk' }, body: { items: [
+  { date: `${targetM}-03`, type: 'available' }, { date: `${targetM}-04`, type: 'unavailable' },
+  { date: `${targetM}-05`, type: 'specific_shift', startTime: '10:00', endTime: '20:00' }, { date: `${targetM}-06`, type: 'from_time', startTime: '14:00' },
+] } });
+T('zbiorcze zgłoszenie 4 dni przyjęte', rb.code === 200 && rb.body.dni === 4);
+rb = await call(availH, { method: 'POST', headers: emp, query: { action: 'request-bulk' }, body: { items: [{ date: `${targetM}-05`, type: 'specific_shift', startTime: '12:00', endTime: '18:00' }] } });
+const lista = await kv.get('avail:reqs');
+T('ponowne zgłoszenie dnia zastępuje poprzedni wpis (jedna aktywna dyspozycja/dzień)', rb.code === 200 && lista.filter((r) => r.accountId === 'uA' && r.date === `${targetM}-05`).length === 1 && lista.find((r) => r.accountId === 'uA' && r.date === `${targetM}-05`).startTime === '12:00');
+rb = await call(availH, { method: 'POST', headers: emp, query: { action: 'request-bulk' }, body: { items: [{ date: `${targetM}-07`, type: 'specific_shift', startTime: '10:00' }] } });
+T('od–do bez końca → 400', rb.code === 400);
+rb = await call(availH, { method: 'POST', headers: emp, query: { action: 'request-bulk' }, body: { items: [{ date: '2026-01-05', type: 'available' }] } });
+T('dzień poza miesiącem docelowym → 400', rb.code === 400);
+
 console.log('— P4-03: regresja syntetycznego Actual —');
 try {
   const app = readFileSync(new URL('../../rex-cloud-admin/src/App.jsx', import.meta.url), 'utf-8');

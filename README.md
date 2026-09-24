@@ -597,3 +597,36 @@ Pełny opis formuł i porównanie z MAPAL: `../FORECAST_ENGINE_P5.md`; wdrożeni
 
 Testy: 93 PASS (17 nowych: reguły, bramka publikacji, cron, org).
 Konfiguracja Vercel: dodaj zmienną CRON_SECRET (dowolny losowy ciąg) w projekcie backendu.
+
+## v9.1 — dyspozycje w grafiku, eksport/import ze stanowiskami
+
+- Zatwierdzone dyspozycje widoczne podczas układania: w siatce tygodniowej puste komórki
+  pokazują „dostępny / niedostępny / od HH:MM / do HH:MM / HH–HH pref." zamiast WOLNE,
+  a zmiana wpisana wbrew dyspozycji dostaje czerwony znacznik „!" z opisem kolizji.
+  W dziennym Gantcie znacznik przy nazwisku (z ostrzeżeniem przy kolizji).
+- Eksport: przełącznik „Zaznacz stanowiska" — wariant podglądowy 3 kolumny/dzień
+  (start | koniec | stanowisko, kilka stanowisk łączone „A → B", suma godzin), plik
+  „…_stanowiska.xlsx". Bez zaznaczenia — niezmieniony szablon 1:1 systemu docelowego.
+- Import: autodetekcja kroku kolumn (2 = szablon, 3 = ze stanowiskami); w podglądzie
+  wybór „Ze stanowiskami z pliku" / „Bez stanowisk — przypisz” (lista + zastosuj dla
+  wszystkich + nadpisania per wiersz). Roundtrip obu wariantów zweryfikowany.
+
+## v9.2 — giełda zamian w Employee Hub: pełna lista ofert
+
+- Karta „Giełda zamian" pokazywała tylko 2 ostatnie oferty, a przycisk „Zgłoś się" dotyczył
+  wyłącznie pierwszej. Teraz: przewijalna lista WSZYSTKICH otwartych ofert innych osób,
+  każda z własnym przyciskiem „Zgłoś się" / „Wycofaj" (można zgłosić się do wielu),
+  liczba zgłoszeń przy ofercie i podpowiedź „masz już zmianę tego dnia".
+
+## v9.3 — dyspozycje na cały miesiąc + wariant „pracuję od–do"
+
+- Employee Hub: zamiast formularza dzień po dniu — planer miesiąca: siatka kalendarza
+  miesiąca docelowego, wybór wariantu (Dostępny / Niedostępny / Od godziny / Do godziny /
+  Pracuję od–do) i klikanie dni, „Zaznacz cały miesiąc", podgląd dni już zgłoszonych
+  (obwódka), jedno wysłanie wszystkich dni.
+- Nowy wariant dzienny „Pracuję od–do" (np. 10:00–20:00) — typ specific_shift z oknem godzin;
+  etykiety w Hub, kolejce decyzji Studio i w siatce grafiku („10:00–20:00", ton lawendowy),
+  kolizja liczona względem okna.
+- Backend: POST /api/availability?action=request-bulk { items[] } — walidacja per pozycja,
+  reguła okna/miesiąca docelowego, jedna aktywna dyspozycja na dzień (nowe zastępuje),
+  audyt availability.request-month. Testy: 97 PASS.
