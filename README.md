@@ -630,3 +630,28 @@ Konfiguracja Vercel: dodaj zmienną CRON_SECRET (dowolny losowy ciąg) w projekc
 - Backend: POST /api/availability?action=request-bulk { items[] } — walidacja per pozycja,
   reguła okna/miesiąca docelowego, jedna aktywna dyspozycja na dzień (nowe zastępuje),
   audyt availability.request-month. Testy: 97 PASS.
+
+## v10.1 — import dyspozycji w układzie poziomym
+
+- Import / eksport → karta „Import dyspozycji (XLSX poziomy)": ten sam układ co grafik
+  (A1 = rok, DD/MM co 2 kolumny, wiersz = osoba). Para godzin = „pracuję od–do";
+  T/TAK/D/OK = dostępny; N/NIE/X/- = niedostępny; „od 14:00" / „do 16:00" (jedna komórka)
+  = dostępny od / do; pusta = brak deklaracji. Dopasowanie osób po nazwie/aliasach kont,
+  lista nierozpoznanych, podgląd, opcja „Zatwierdź od razu".
+- Backend request-bulk: manager może podać accountId per pozycja (wiele osób w jednym
+  wywołaniu, do 4000 pozycji), autoApprove ustawia approved z autorem; audyt availability.import.
+  Testy: 118 PASS.
+
+## v10.2 — import dyspozycji: konwencje arkusza + puste dni
+- Para 00:00–23:59 = dostępny cały dzień; 00:00–HH:MM = dostępny do; HH:MM–23:59 = dostępny od;
+  inne pary = pracuję od–do. Opcja „Puste dni osób z pliku = niedostępny" (domyślnie tak).
+  Zweryfikowane na pliku Układ poziomy - plan_2026-10-01_2026-10-31.xlsx (33 osoby, 289 deklaracji).
+
+## v10.3 — zbiorcza akceptacja dyspozycji per pracownik
+- Dyspozycyjność (Studio): kolejka „Preferencje pracowników" pokazuje OSOBY (najpierw te z
+  deklaracjami do decyzji, z licznikami zatwierdzonych/odrzuconych/konfliktów). Wejście w osobę
+  otwiera kalendarz miesiąca jak w Employee Hub (typ deklaracji = kolor, obwódka = oczekuje,
+  „!" = konflikt z grafikiem), nawigacja między miesiącami, zaznaczanie dni, „Zaznacz oczekujące",
+  „Zatwierdź/Odrzuć zaznaczone" i „Zatwierdź wszystkie oczekujące", notatka do decyzji.
+- Backend: POST /api/availability?action=decide-bulk { ids, status, managerNote } — audyt
+  availability.approve-bulk / reject-bulk. Testy: 121 PASS.

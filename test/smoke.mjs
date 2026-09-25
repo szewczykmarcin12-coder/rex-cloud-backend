@@ -327,6 +327,24 @@ T('od–do bez końca → 400', rb.code === 400);
 rb = await call(availH, { method: 'POST', headers: emp, query: { action: 'request-bulk' }, body: { items: [{ date: '2026-01-05', type: 'available' }] } });
 T('dzień poza miesiącem docelowym → 400', rb.code === 400);
 
+console.log('— Import dyspozycji (ASM, wiele osób, autozatwierdzenie) —');
+rb = await call(availH, { method: 'POST', headers: asm, query: { action: 'request-bulk' }, body: { autoApprove: true, items: [
+  { accountId: 'uA', date: '2026-12-03', type: 'specific_shift', startTime: '10:00', endTime: '20:00' },
+  { accountId: 'uA', date: '2026-12-04', type: 'unavailable' },
+] } });
+const listaImp = await kv.get('avail:reqs');
+T('ASM importuje dyspozycje wielu dat z accountId per pozycja', rb.code === 200 && rb.body.dni === 2);
+T('autozatwierdzenie ustawia status approved z autorem', listaImp.filter((r) => r.date === '2026-12-03' && r.accountId === 'uA').every((r) => r.status === 'approved' && r.managerName === 'ASM'));
+T('ASM nie podlega oknu miesiąca docelowego', listaImp.some((r) => r.date === '2026-12-04'));
+T('pracownik nie może podać cudzego accountId', (await call(availH, { method: 'POST', headers: emp, query: { action: 'request-bulk' }, body: { items: [{ accountId: 'uB', date: `${targetM}-09`, type: 'available' }] } })).code !== 200 || !(await kv.get('avail:reqs')).some((r) => r.accountId === 'uB'));
+
+console.log('— Decyzja zbiorcza dyspozycji —');
+const pendIds = (await kv.get('avail:reqs')).filter((r) => r.accountId === 'uA' && r.status === 'pending').map((r) => r.id);
+rb = await call(availH, { method: 'POST', headers: asm, query: { action: 'decide-bulk' }, body: { ids: pendIds, status: 'approved', managerNote: 'cały miesiąc' } });
+T('decide-bulk zatwierdza wszystkie oczekujące osoby', rb.code === 200 && rb.body.zmienione === pendIds.length && pendIds.length >= 3);
+T('po decyzji brak oczekujących u osoby', !(await kv.get('avail:reqs')).some((r) => r.accountId === 'uA' && r.status === 'pending'));
+T('pracownik nie może decydować zbiorczo → 403', (await call(availH, { method: 'POST', headers: emp, query: { action: 'decide-bulk' }, body: { ids: pendIds, status: 'approved' } })).code === 403);
+
 console.log('— AOP AUTOPLAN: model statystyczny + układanie —');
 const ap = await import('../lib/autoplan.js');
 const kontaAP = [
