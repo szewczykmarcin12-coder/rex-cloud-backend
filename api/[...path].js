@@ -18,6 +18,7 @@ import monthlyForecast from '../lib/monthly-forecast.js';
 import compliance from '../lib/compliance.js';
 import kpi from '../lib/kpi.js';
 import org from '../lib/org.js';
+import autoplan from '../lib/autoplan.js';
 
 // Jedna funkcja serverless obsługuje wszystkie endpointy /api/*.
 // Dzięki temu projekt zajmuje 1 z 12 dostępnych funkcji na planie Hobby,
@@ -43,6 +44,7 @@ const TRASY = {
   'kpi': kpi,
   'kpi-nightly': kpi,
   'org': org,
+  'autoplan': autoplan,
 };
 
 export default async function handler(req, res) {

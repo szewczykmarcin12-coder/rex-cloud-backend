@@ -327,6 +327,46 @@ T('od–do bez końca → 400', rb.code === 400);
 rb = await call(availH, { method: 'POST', headers: emp, query: { action: 'request-bulk' }, body: { items: [{ date: '2026-01-05', type: 'available' }] } });
 T('dzień poza miesiącem docelowym → 400', rb.code === 400);
 
+console.log('— AOP AUTOPLAN: model statystyczny + układanie —');
+const ap = await import('../lib/autoplan.js');
+const kontaAP = [
+  { id: 'c1', name: 'Ala Kanapka', grafikName: 'KANAPKA', funkcja: 'CREW', umowa: 'UOP', wymiarTygH: 40, stawka: 4800 },
+  { id: 'c2', name: 'Bartek Frytka', grafikName: 'FRYTKA', funkcja: 'CREW', umowa: 'UZ', stawka: 30 },
+  { id: 'c3', name: 'Celina Nowa', grafikName: 'NOWA', funkcja: 'CREW', umowa: 'UZ', stawka: 30 },
+  { id: 'm1', name: 'Marek Manager', grafikName: 'MANAGER1', funkcja: 'SM', umowa: 'UOP', wymiarTygH: 40, stawka: 7000 },
+];
+const histAP = [];
+for (let d = 1; d <= 28; d++) { const ds = `2026-08-${String(d).padStart(2, '0')}`; if (d % 7 !== 0) { histAP.push({ date: ds, accountId: 'c1', name: 'KANAPKA', station: 'KANAPKI / WRAPY', start: '06:00', end: '14:00', hours: 8 }); histAP.push({ date: ds, accountId: 'c2', name: 'FRYTKA', station: 'FRYTKI', start: '14:00', end: '22:00', hours: 8 }); } }
+histAP.push({ date: '2026-08-05', accountId: 'c1', name: 'KANAPKA', station: 'FRYTKI', start: '06:00', end: '14:00', hours: 8 });
+const { model: mdl, priorGrupy } = ap.modelOsob(histAP, kontaAP, { dzis: '2026-10-01' });
+T('afiniczność: Ala → KANAPKI dominuje (>0.8)', mdl.c1.afinicznosc['KANAPKI / WRAPY'] > 0.8 && mdl.c1.afinicznosc['FRYTKI'] < 0.15);
+T('afiniczność sumuje się do ~1 (Dirichlet)', Math.abs(Object.values(mdl.c1.afinicznosc).reduce((a, b) => a + b, 0) - 1) < 1e-6);
+T('nowa osoba dziedziczy prior grupy crew', mdl.c3.n === 0 && Math.abs(mdl.c3.afinicznosc['KANAPKI / WRAPY'] - priorGrupy.crew['KANAPKI / WRAPY']) < 1e-6);
+T('nawyk startu: Ala rano (6), Bartek popołudnie (14)', mdl.c1.startPref[6] > mdl.c1.startPref[14] && mdl.c2.startPref[14] > mdl.c2.startPref[6]);
+const rz = ap.rozkladDni(['2026-10-05', '2026-10-06', '2026-10-09', '2026-10-10'], { sales: 100000, transactions: 4000 }, {});
+T('rozkład AOP na dni zachowuje sumę sprzedaży', Math.abs(rz.reduce((a, r) => a + r.sales, 0) - 100000) < 1 && rz[3].sales > rz[0].sales);
+const kd = ap.krzywaDnia(40000, 420, null, 1);
+T('krzywa dnia: szczyt 12–14 i 18–19 wyższy niż 06', kd[13] > kd[0] && kd[25] > kd[0] && kd.length === 48);
+const wynik = ap.ulozGrafik({ from: '2026-10-05', to: '2026-10-11', aop: { crewHoursMax: 200, totalHours: 260, sales: 300000, transactions: 12000 }, wymagania: [{ station: 'KANAPKI / WRAPY', start: '06:00', end: '14:00', dni: [] }], seed: 7 },
+  { accounts: kontaAP, historia: histAP, salesHist: {}, hourlyProfile: null, absences: [{ accountId: 'c2', status: 'approved', from: '2026-10-07', to: '2026-10-07' }], avail: [{ accountId: 'c3', status: 'approved', type: 'unavailable', date: '2026-10-08', recurrence: 'once' }], istniejace: [] });
+const ps = wynik.podsumowanie;
+T('wymagane KANAPKI od 06:00 obsadzone każdego dnia', ps.pokrycieWymagan === 100 && wynik.przypisania.filter((p) => p.wymagana).length === 7);
+T('wymagana zmiana kanapek trafia do Ali (afiniczność)', wynik.przypisania.filter((p) => p.wymagana && p.accountId === 'c1').length >= 5);
+T('limit godzin CREW nie przekroczony', ps.godzinyCrew <= 200 + 0.01);
+T('absencja Bartka 07.10 respektowana', !wynik.przypisania.some((p) => p.accountId === 'c2' && p.date === '2026-10-07'));
+T('niedostępność Celiny 08.10 respektowana', !wynik.przypisania.some((p) => p.accountId === 'c3' && p.date === '2026-10-08'));
+T('0 twardych naruszeń KP w propozycji', ps.naruszenia.block === 0);
+T('każda osoba ≤ 12 h/dobę i bez nakładania', (() => { const perDay = {}; wynik.przypisania.filter((p) => p.accountId).forEach((p) => { perDay[`${p.accountId}|${p.date}`] = (perDay[`${p.accountId}|${p.date}`] || 0) + p.hours; }); return Object.values(perDay).every((h) => h <= 12); })());
+const wynik2 = ap.ulozGrafik({ from: '2026-10-05', to: '2026-10-11', aop: { crewHoursMax: 200, sales: 300000 }, wymagania: [{ station: 'KANAPKI / WRAPY', start: '06:00', end: '14:00' }], seed: 7 }, { accounts: kontaAP, historia: histAP, salesHist: {}, hourlyProfile: null, absences: [], avail: [], istniejace: [] });
+T('deterministyczność (ten sam seed → ten sam wynik)', JSON.stringify(wynik2.przypisania.map((p) => [p.date, p.start, p.accountId])) === JSON.stringify(ap.ulozGrafik({ from: '2026-10-05', to: '2026-10-11', aop: { crewHoursMax: 200, sales: 300000 }, wymagania: [{ station: 'KANAPKI / WRAPY', start: '06:00', end: '14:00' }], seed: 7 }, { accounts: kontaAP, historia: histAP, salesHist: {}, hourlyProfile: null, absences: [], avail: [], istniejace: [] }).przypisania.map((p) => [p.date, p.start, p.accountId])));
+await kv.set('accounts:list', kontaAP);
+const apH = ap.default;
+const rg = await call(apH, { method: 'POST', headers: asm, query: { action: 'generate' }, body: { from: '2026-10-05', to: '2026-10-11', aop: { crewHoursMax: 200, sales: 300000, transactions: 12000 }, wymagania: [{ station: 'KANAPKI / WRAPY', start: '06:00', end: '14:00' }] } });
+T('POST autoplan generate → propozycja zapisana', rg.code === 200 && rg.body.proposal && rg.body.proposal.id);
+const ra = await call(apH, { method: 'POST', headers: asm, query: { action: 'apply' }, body: { id: rg.body.proposal.id } });
+T('apply zwraca zmiany do add-bulk (tylko obsadzone)', ra.code === 200 && ra.body.shifts.length === rg.body.proposal.podsumowanie.obsadzone);
+T('pracownik nie wygeneruje propozycji → 403', (await call(apH, { method: 'POST', headers: emp, query: { action: 'generate' }, body: {} })).code === 403);
+
 console.log('— P4-03: regresja syntetycznego Actual —');
 try {
   const app = readFileSync(new URL('../../rex-cloud-admin/src/App.jsx', import.meta.url), 'utf-8');
