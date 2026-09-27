@@ -655,3 +655,30 @@ Konfiguracja Vercel: dodaj zmienną CRON_SECRET (dowolny losowy ciąg) w projekc
   „Zatwierdź/Odrzuć zaznaczone" i „Zatwierdź wszystkie oczekujące", notatka do decyzji.
 - Backend: POST /api/availability?action=decide-bulk { ids, status, managerNote } — audyt
   availability.approve-bulk / reject-bulk. Testy: 121 PASS.
+
+## v10.4 — Dyspozycyjność: kto z crew nie podał dyspozycji
+- Nowa karta w prawej kolumnie: lista pracowników crew (bez RGM/ASM/SM/JSM) bez żadnej
+  deklaracji na miesiąc docelowy okna (odrzucone nie liczą się), z licznikiem N z M.
+
+## v10.5 — eksport dyspozycji (układ poziomy)
+- Dyspozycyjność → „Eksport dyspozycji" (zatwierdzone) i „+ oczekujące": plik w tym samym
+  układzie co import (A1 rok, DD/MM co 2 kolumny, wiersz = osoba crew, para godzin;
+  cały dzień = 00:00–23:59, od = HH:MM–23:59, do = 00:00–HH:MM, niedostępny = pusto)
+  + kolumna „DNI Z DYSPOZYCJĄ". Plik „Dyspozycje - RRRR-MM.xlsx" — importowalny z powrotem.
+
+## v10.6 — eksport do GO = kopia oryginalnego szablonu (chirurgia XML)
+- Studio nie buduje już nowego skoroszytu. `src/goExport.js` pobiera `public/go-template.xlsx` (oryginalny plik wyeksportowany z GO: 221 wierszy, A1:AEN221, 31 scaleń, 7040 formuł, style, szerokości kolumn, printerSettings, calcChain), rozpakowuje go w przeglądarce (fflate) i podmienia **wyłącznie** trzy rzeczy w `sheet1.xml`: nagłówki dat w wierszu 1 (B1, D1, … jako `DD/MM`, A1 = rok), nazwiska w A2:A221 i pary godzin w B:BK. Kolumny BL:AEN (SUMA, formuły pomocnicze), wiersze bez osób, scalenia i style pozostają bajt w bajt z oryginału — 14 z 16 części archiwum jest identycznych, zmieniają się tylko `sheet1.xml` i `sharedStrings.xml`.
+- Godziny zapisywane tak, jak robi to sam GO w swoim pliku: jako tekst (Shared Strings) ze stylem komórki szablonu (`s=13`), nazwiska ze stylem `s=16` — numery stylów odczytywane z wiersza 2 szablonu, nie zgadywane. Zmiany tej samej osoby tego samego dnia są scalane do jednego przedziału (min start – max koniec), zmiana nocna zostaje `22:00 → 06:00`.
+- Wiersze bez osoby nie dostają komórek A..BK (jak w oryginale), formuły BL+ w nich pozostają. Dni poza miesiącem (np. 31. w miesiącu 30-dniowym) mają komórkę nagłówka bez wartości.
+- Wariant „ze stanowiskami” (checkbox w Import/Eksport) nadal używa generatora 3-kolumnowego `exportPoziomy(..., { stanowiska: true })` — to format roboczy ORDO, nie GO.
+- Wymiana szablonu: wystarczy podmienić `rex-cloud-admin/public/go-template.xlsx` na świeży eksport z GO (dowolny miesiąc); eksporter sam odczyta style i geometrię.
+
+## v11.0 — Studio: uporządkowanie modułów względem Mapal Workforce (27.09.2026)
+- **Nawigacja dwupoziomowa**: 7 obszarów (Centrum pracy, Prognozy i estymacja, Planowanie, Realizacja, Analizy i raporty, Zespół, Administracja) w menu bocznym, moduły obszaru w poziomym pasku z opisem. Jedno źródło prawdy `rex-cloud-admin/src/navigation.js` dla menu, paska, wyszukiwarki, adresów `#/obszar/modul`, starszych skrótów i ról. Koniec mieszania nazw: Schedule → Grafik, Actual → Wykonanie i karty czasu, Time & Attendance → Rejestr obecności, Blueprints → Szablony, ShiftCycles → Cykle i rotacje.
+- „Planowanie i popyt” rozbite na osobne moduły: Prognoza miesiąca (AOP/COL), Model popytu (historia, sezonowość, krzywa dnia, symulacja), Budżet i koszty, Zapotrzebowanie i obsada, Automatyczne układanie. Skrót `plan` prowadzi do Budżetu, `forecast` do Prognozy miesiąca (dotąd oba otwierały tę samą powłokę). Dodano dostęp do istniejącego edytora **Limity godzin** (plan godzin miesiąca, ręczne godziny MGR).
+- Adresy i historia: każdy moduł ma `#/…`, działa odświeżenie, wstecz/dalej; stare adresy są normalizowane bez dodatkowego wpisu w historii. Wyszukiwarka: polskie znaki i zapis bez diakrytyków, strzałki, Enter, Escape, wynik prowadzi do konkretnego narzędzia („actual” → Wykonanie, nie ogólny grafik).
+- **Analizy → Wyniki i produktywność**: wybór miesiąca lub 12 miesięcy kalendarzowych kończących się na najnowszym miesiącu z danymi (puste miesiące jako zera, nie „12 ostatnich miesięcy z danymi”); filtr obejmuje wykresy, KPI, kompletność i CSV. „Zgodność grafików” przemianowana na **Zamknięcie kart czasu** i liczona tylko dla dni grafiku okresu (to nie jest kontrola reguł KP). Koszt jawnie oznaczony jako szacunek z informacją o zmianach bez stawki i miesiącach bez sprzedaży. KPI dzienne (snapshoty cron) mają osobny, wyraźnie oznaczony zakres „ostatnie 30 dostępnych dni, niezależnie od filtra”. Błędy pobrania KPI i prognozy są widoczne z przyciskiem ponowienia (Wyniki, Trafność prognozy).
+- Automatyczne układanie: techniczny opis modelu schowany pod rozwijanymi szczegółami („Jak powstaje propozycja”); historia propozycji zachowana; brak modelu z API nie wywala widoku.
+- React: wszystkie hooki `App` przed warunkowym ekranem logowania (dotąd `useState` dla menu były po `return <Login/>`). Naprawiony ukryty `ReferenceError` w edycji pary szkoleniowej w siatce tygodnia (`day` → `modal.date`).
+- Podział `App.jsx` (6331 → ~3870 wierszy) bez zmiany algorytmów: `lib/api.js`, `lib/domain.js`, `lib/demandEngine.js`, `lib/runtime.js`, `lib/publish.js`, `analytics/period.js`, `ui/primitives.jsx`, `views/{DemandModel,BudgetPlan,Staffing,Autoplan,HourLimits,Analytics,ForecastQuality}.jsx`. Usunięte martwe komponenty (`SchedulePage`, `DyspoAdmin`, `WTTemplates`, `PlanFinanse`).
+- `npm ci` w Studio: `package.json` zgodny z `package-lock.json` (`xlsx ^0.18.5`). Testy Studio: `npm test` (vitest) — 7 testów jednostkowych + 7 scenariuszy powłoki w jsdom na lokalnych danych testowych. Backend bez zmian schematów i kluczy: 121 PASS.
