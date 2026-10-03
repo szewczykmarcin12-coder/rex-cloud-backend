@@ -409,6 +409,23 @@ T('bez profilu — ostrzeżenie o założeniu QSR', monthlyForecastMod.buildMont
 const sdz = salesMod.profilSrodDzienny(await kv.get('sales:data').then((x) => x.intraday));
 T('autoplan: krzywa dnia z profilu śróddziennego ma szczyt 14–15, zero w nocy', (() => { const w = ap.krzywaDnia(35000, 420, sdz.hourlyDow['1']); const i = w.indexOf(Math.max(...w)); return i >= 14 && i <= 18 && w[40] === 0; })());
 
+
+console.log('— P4 v2: hybryda vs mediana, wybór po backteście, świeżość danych —');
+const fc = await import('../lib/forecast.js');
+const bt = fc.backtestModeli(posPayload.sales, 28, '2026-10-01');
+T('backtest na realnych danych: hybryda wyraźnie lepsza od mediany (8,5 % vs 12,8 % MAPE) i wybrana', bt.wybrany === 'hybryda' && bt.hybryda.mape < bt.mediana.mape - 3 && bt.hybryda.dni === 28 && bt.mediana.dni === 28);
+T('hybryda liczy się wyłącznie z danych sprzed dnia (asOf) — wynik dla 15.09 nie zmienia się po dopisaniu późniejszych dni', fc.baselineHybryda(posPayload.sales, '2026-09-15') === fc.baselineHybryda(Object.fromEntries(Object.entries(posPayload.sales).filter(([d]) => d < '2026-09-15')), '2026-09-15'));
+T('hybryda: anomalia jednego dnia (×3) przesuwa poziom o < 6 %', (() => { const s2 = { ...posPayload.sales, '2026-09-27': posPayload.sales['2026-09-27'] * 3 }; return Math.abs(fc.baselineHybryda(s2, '2026-10-05') / fc.baselineHybryda(posPayload.sales, '2026-10-05') - 1) < 0.06; })());
+T('determinizm: te same dane → ta sama prognoza', fc.baselineFor(posPayload.sales, '2026-10-05') === fc.baselineFor({ ...posPayload.sales }, '2026-10-05'));
+T('za mało historii (1 tydzień) → hybryda bez pełnych 4 tygodni nadal działa, 5 dni → mediana jako domyślna', (() => { const t = Object.fromEntries(Object.entries(posPayload.sales).filter(([d]) => d >= '2026-09-24')); const k = Object.fromEntries(Object.entries(posPayload.sales).filter(([d]) => d >= '2026-09-26')); return fc.baselineHybryda(t, '2026-10-05') != null && fc.backtestModeli(k, 28, '2026-10-01').wybrany === 'mediana'; })());
+r = await call(forecast, { method: 'GET', headers: asm, query: { days: '7' } });
+T('GET /forecast: oba baseline per dzień, modele z MAPE, świeżość danych (rytm wtorkowy)', r.code === 200 && r.body.modele && r.body.modele.wybrany && r.body.days[0].baselineMediana != null && r.body.days[0].baselineHybryda != null && r.body.dane && r.body.dane.rytm.includes('wtorek') && /^\d{4}-\d{2}-\d{2}$/.test(r.body.dane.nastepnyImport) && new Date(r.body.dane.nastepnyImport + 'T00:00:00Z').getUTCDay() === 2);
+const sw = fc.swiezoscDanych({ sales: posPayload.sales, meta: { importedAt: '2026-10-03T10:00:00Z' } }, '2026-10-13');
+T('świeżość: 13.10 bez nowego importu → dane z 30.09 przeterminowane, następny wtorek poprawny', sw.przeterminowane === true && sw.dniOdOstatniego === 13 && sw.nastepnyImport === '2026-10-20' && sw.okno8[0] === '2026-08-06');
+T('świeżość: 6.10 (wtorek) po imporcie do 5.10 → aktualne', fc.swiezoscDanych({ sales: { ...posPayload.sales, '2026-10-05': 30000 } }, '2026-10-06').przeterminowane === false);
+r = await call(salesH, { method: 'GET', headers: asm, query: {} });
+T('GET /sales zwraca świeżość', r.body.swiezosc && r.body.swiezosc.ostatniDzien === '2026-09-30');
+
 console.log('— P4-03: regresja syntetycznego Actual —');
 try {
   const app = readFileSync(new URL('../../rex-cloud-admin/src/App.jsx', import.meta.url), 'utf-8');
