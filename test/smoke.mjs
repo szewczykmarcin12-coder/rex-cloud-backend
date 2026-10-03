@@ -23,6 +23,7 @@ globalThis.fetch = async (url, opts) => {
   return { ok: true, status: 200, headers: { get: () => 'application/json' }, json: async () => wynik, text: async () => JSON.stringify(wynik) };
 };
 
+import fs from 'fs';
 const { signSession } = await import('../lib/auth.js');
 const schedule = (await import('../lib/schedule.js')).default;
 const timesheets = (await import('../lib/timesheets.js')).default;
@@ -384,6 +385,29 @@ T('POST autoplan generate → propozycja zapisana', rg.code === 200 && rg.body.p
 const ra = await call(apH, { method: 'POST', headers: asm, query: { action: 'apply' }, body: { id: rg.body.proposal.id } });
 T('apply zwraca zmiany do add-bulk (tylko obsadzone)', ra.code === 200 && ra.body.shifts.length === rg.body.proposal.podsumowanie.obsadzone);
 T('pracownik nie wygeneruje propozycji → 403', (await call(apH, { method: 'POST', headers: emp, query: { action: 'generate' }, body: {} })).code === 403);
+
+
+console.log('— POS: Sales Day by Day + Daily Operations → sales:data (netto), profil śróddzienny → P5 / autoplan —');
+const salesH = (await import('../lib/sales.js')).default;
+const salesMod = await import('../lib/sales.js');
+const posPayload = JSON.parse(fs.readFileSync(new URL('./fixtures/pos-import-2026-08-09.json', import.meta.url), 'utf8'));
+await kv.set('sales:data', { sales: {}, checks: {} });
+r = await call(salesH, { method: 'PUT', headers: asm, query: {}, body: posPayload });
+T('import POS: 61 dni + profil śróddzienny przyjęte', r.code === 200 && r.body.dni === 61 && r.body.intraday === true && r.body.meta.basis === 'net');
+r = await call(salesH, { method: 'GET', headers: asm, query: {} });
+const sdGet = r.body;
+T('GET /sales: netto, brutto i paragony per dzień (1.08: 37 833,30 / 41 075,17 / 835)', Math.round(sdGet.sales['2026-08-01']) === 37833 && sdGet.salesGross['2026-08-01'] === 41075.17 && sdGet.checks['2026-08-01'] === 835);
+T('GET /sales: profil 96 slotów sumuje się do 1, szczyt 14:30, profil godzinowy per dow z intraday', sdGet.intradayProfile && Math.abs(sdGet.intradayProfile.weights96.reduce((a, x) => a + x, 0) - 1) < 1e-6 && sdGet.intradayProfile.weights96.indexOf(Math.max(...sdGet.intradayProfile.weights96)) === 34 && sdGet.hourlyProfileSource === 'intraday' && Object.keys(sdGet.hourlyProfile).length === 7);
+T('profil śróddzienny odrzuca śmieci (400)', (await call(salesH, { method: 'PUT', headers: asm, query: {}, body: { intraday: { slots: { 'zle': { sales: 1 } } } } })).code === 400);
+// P5 na realnej historii: rozkład na dni + sloty wg zmierzonego profilu
+r = await call(monthlyForecast, { method: 'POST', headers: asm, query: { action: 'generate' }, body: { month: '2026-10', monthlySales: 850000, monthlyTransactions: 21000, expectedVersion: 0, settings: { targetSplh: 420 } } });
+const p5pos = r.body && r.body.plan;
+T('P5 październik z historii POS: suma zachowana, weekend > wtorek, profil zmierzony', r.code === 200 && p5pos && p5pos.totals.sales === 850000 && p5pos.intraday.source === 'measured' && p5pos.days.find((d) => d.date === '2026-10-04').sales > p5pos.days.find((d) => d.date === '2026-10-06').sales && !p5pos.warnings.some((w) => /standardowe założenie QSR/.test(w)));
+const slotMax = p5pos.days[0].slots.reduce((m, s) => (s.sales > m.sales ? s : m), p5pos.days[0].slots[0]);
+T('sloty 15 min dnia wg zmierzonego profilu: szczyt 14:30, 03:00 puste', slotMax.time === '14:30' && p5pos.days[0].slots.find((s) => s.time === '03:00').sales === 0);
+T('bez profilu — ostrzeżenie o założeniu QSR', monthlyForecastMod.buildMonthlyForecast({ month: '2026-10', monthlySales: 850000, monthlyTransactions: 21000, history: { sales: sdGet.sales, checks: sdGet.checks } }).warnings.some((w) => /standardowe założenie QSR/.test(w)));
+const sdz = salesMod.profilSrodDzienny(await kv.get('sales:data').then((x) => x.intraday));
+T('autoplan: krzywa dnia z profilu śróddziennego ma szczyt 14–15, zero w nocy', (() => { const w = ap.krzywaDnia(35000, 420, sdz.hourlyDow['1']); const i = w.indexOf(Math.max(...w)); return i >= 14 && i <= 18 && w[40] === 0; })());
 
 console.log('— P4-03: regresja syntetycznego Actual —');
 try {
