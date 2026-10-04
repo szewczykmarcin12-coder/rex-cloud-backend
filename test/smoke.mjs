@@ -426,6 +426,65 @@ T('świeżość: 6.10 (wtorek) po imporcie do 5.10 → aktualne', fc.swiezoscDan
 r = await call(salesH, { method: 'GET', headers: asm, query: {} });
 T('GET /sales zwraca świeżość', r.body.swiezosc && r.body.swiezosc.ostatniDzien === '2026-09-30');
 
+
+console.log('— PLAN MIESIĄCA: propozycja totalu z historii, wersje, jedno źródło dla P5 i autoplanu —');
+const mpMod = await import('../lib/month-plan.js'); const monthPlan = mpMod.default;
+const prop = mpMod.propozycjaMiesiaca({ month: '2026-10', sales: posPayload.sales, checks: posPayload.checks, asOf: '2026-10-03' });
+T('propozycja października z 8 tygodni: ok, w pasmie 700–900 tys., trend ujemny ograniczony do −4 %/tydz., skład 5 pt/5 sb', prop.ok && prop.sales > 700000 && prop.sales < 900000 && prop.trendTygPct === -4 && prop.tygodniHistorii === 8 && prop.sklad.Pt === 5 && prop.sklad.Sb === 5 && prop.low < prop.sales && prop.high > prop.sales);
+T('propozycja liczona na dzień asOf — 20.09 nie widzi danych po 20.09 (inny poziom niż 3.10)', mpMod.propozycjaMiesiaca({ month: '2026-10', sales: posPayload.sales, checks: posPayload.checks, asOf: '2026-09-20' }).sales !== prop.sales && mpMod.propozycjaMiesiaca({ month: '2026-10', sales: posPayload.sales, checks: posPayload.checks, asOf: '2026-09-20' }).tygodniHistorii === 7);
+T('bez danych rok wcześniej: sezon z indeksu — październik ze startu QSR (1,00), wrzesień już wyuczony z własnego wykonania (słabszy) → mnożnik 1,03–1,10, komunikat o uczeniu, szersze pasmo', !prop.yoy.dostepne && prop.sezon.idxCel.zrodlo === 'default' && prop.sezon.idxBaza.zrodlo === 'learned' && prop.sezon.idxRatio > 1.03 && prop.sezon.idxRatio < 1.10 && prop.powody.some((x) => /nauczy się/.test(x)) && prop.pasmoPct >= 9);
+T('rok wcześniej jest tylko słabym głosem (waga 30 %): syntetyczny IX 2025 = −20 % vs VIII 2025 przesuwa propozycję, ale nie rządzi nią', (() => { const s2 = { ...posPayload.sales }; Object.entries(posPayload.sales).forEach(([d, v]) => { s2[`2025-${d.slice(5)}`] = v * 0.9; }); const r0 = mpMod.propozycjaMiesiaca({ month: '2026-09', sales: posPayload.sales, checks: posPayload.checks, asOf: '2026-08-31' }); const r = mpMod.propozycjaMiesiaca({ month: '2026-09', sales: s2, checks: posPayload.checks, asOf: '2026-08-31' }); const r1 = mpMod.propozycjaMiesiaca({ month: '2026-09', sales: s2, checks: posPayload.checks, asOf: '2026-08-31', yoyWeight: 1 }); return r.yoy.dostepne && r.sales < r0.sales && r.sales > r1.sales && r.yoy.factor === 0.8; })());
+// indeks sezonowy: start → ręczny → wyuczony; zdarzenia
+const idx0 = mpMod.indeksSezonowy(posPayload.sales, {});
+T('indeks sezonowy: sierpień i wrzesień 2026 kompletne → wyuczone (n=1) zmieszane z priorem, pozostałe miesiące start QSR', idx0.idx['8'].zrodlo === 'learned' && idx0.idx['9'].zrodlo === 'learned' && idx0.idx['8'].factor > idx0.idx['9'].factor && idx0.idx['12'].zrodlo === 'default' && idx0.idx['12'].factor === 1.08 && idx0.miesiecyHistorii === 2);
+T('ręczny indeks nadpisuje wyuczony', mpMod.indeksSezonowy(posPayload.sales, { '9': 0.9 }).idx['9'].factor === 0.9 && mpMod.indeksSezonowy(posPayload.sales, { '9': 0.9 }).idx['9'].zrodlo === 'manual');
+const ev = [{ id: 'e1', name: 'Kampania kanapkowa', typ: 'promo', from: '2026-10-06', to: '2026-10-19', upliftPct: 8 }, { id: 'e2', name: 'Wszystkich Świętych', typ: 'closure', from: '2026-11-01', to: '2026-11-01', upliftPct: -100 }];
+T('mnożnik zdarzeń: promo +8 %, zamknięcie = 0, dzień bez zdarzeń = 1', mpMod.mnoznikZdarzen(ev, '2026-10-10').factor === 1.08 && mpMod.mnoznikZdarzen(ev, '2026-11-01').factor === 0 && mpMod.mnoznikZdarzen(ev, '2026-10-25').factor === 1);
+const propEv = mpMod.propozycjaMiesiaca({ month: '2026-10', sales: posPayload.sales, checks: posPayload.checks, asOf: '2026-10-03', events: ev });
+T('propozycja z promocją: 14 dni × +8 % podnosi total i jest nazwana w powodach', propEv.sales > prop.sales && propEv.zdarzenia.includes('Kampania kanapkowa') && propEv.wplywZdarzen > 0 && propEv.dni.find((d) => d.date === '2026-10-10').events.length === 1);
+T('walidacja zdarzenia: od > do, brak nazwy, wpływ poza zakresem', !!mpMod.normalizujZdarzenie({ name: 'x', from: '2026-10-10', to: '2026-10-01' }).error && !!mpMod.normalizujZdarzenie({ name: '', from: '2026-10-10', to: '2026-10-11' }).error && !!mpMod.normalizujZdarzenie({ name: 'Promo', from: '2026-10-10', to: '2026-10-11', upliftPct: 500 }).error && !mpMod.normalizujZdarzenie({ name: 'Promo', typ: 'promo', from: '2026-10-10', to: '2026-10-11', upliftPct: 8 }).error);
+T('za mało historii → brak propozycji z powodem', mpMod.propozycjaMiesiaca({ month: '2026-10', sales: { '2026-09-30': 1000 }, checks: {}, asOf: '2026-10-03' }).ok === false);
+r = await call(monthPlan, { method: 'GET', headers: asm, query: { month: '2026-10' } });
+T('GET /month-plan: propozycja + brak planu + parametry wspólne + lista miesięcy', r.code === 200 && r.body.proposal.ok && r.body.plan === null && r.body.params.splh === 420 && r.body.miesiace.length === 6);
+r = await call(monthPlan, { method: 'POST', headers: asm, query: { action: 'save' }, body: { month: '2026-10', sales: 700000, transactions: 18000, source: 'manual', proposal: prop, expectedVersion: 0 } });
+T('odchylenie > 3 % od propozycji bez uzasadnienia → 400', r.code === 400);
+T('godziny CREW > godziny AOP → 400', (await call(monthPlan, { method: 'POST', headers: asm, query: { action: 'save' }, body: { month: '2026-10', sales: 700000, transactions: 18000, hoursAop: 3000, crewHours: 3100, source: 'proposal', expectedVersion: 0 } })).code === 400);
+r = await call(monthPlan, { method: 'POST', headers: asm, query: { action: 'save' }, body: { month: '2026-10', sales: 700000, transactions: 18000, hoursAop: 1200, crewHours: 1000, source: 'manual', reason: 'remont galerii 12–20.10', proposal: prop, expectedVersion: 0 } });
+T('zapis z uzasadnieniem → DRAFT v1 z migawką propozycji i limitem godzin AOP', r.code === 200 && r.body.plan.status === 'DRAFT' && r.body.plan.version === 1 && r.body.plan.proposal.sales === prop.sales && r.body.plan.reason.includes('remont') && r.body.plan.hoursAop === 1200 && r.body.plan.crewHours === 1000);
+T('stara wersja → 409', (await call(monthPlan, { method: 'POST', headers: asm, query: { action: 'save' }, body: { month: '2026-10', sales: 710000, transactions: 18000, source: 'proposal', expectedVersion: 0 } })).code === 409);
+T('kierownik nie zapisze planu (403)', (await call(monthPlan, { method: 'POST', headers: { authorization: 'Bearer ' + await signSession({ role: 'kierownik', name: 'K' }) }, query: { action: 'save' }, body: { month: '2026-10', sales: 1, transactions: 1 } })).code === 403);
+// przed zatwierdzeniem P5 bez własnej sprzedaży → błąd walidacji
+await kv.set('forecast:monthly:2026-10', null);
+T('P5 bez sprzedaży i bez zatwierdzonego planu → 400', (await call(monthlyForecast, { method: 'POST', headers: asm, query: { action: 'generate' }, body: { month: '2026-10', expectedVersion: 0 } })).code === 400);
+r = await call(monthPlan, { method: 'POST', headers: asm, query: { action: 'approve' }, body: { month: '2026-10', expectedVersion: 1 } });
+T('zatwierdzenie → APPROVED v2', r.code === 200 && r.body.plan.status === 'APPROVED' && r.body.plan.version === 2 && r.body.plan.approvedBy === 'ASM');
+r = await call(monthlyForecast, { method: 'POST', headers: asm, query: { action: 'generate' }, body: { month: '2026-10', expectedVersion: 0 } });
+T('P5 bez własnych liczb bierze sprzedaż i transakcje z zatwierdzonego Planu miesiąca i zapisuje źródło', r.code === 200 && r.body.plan.totals.sales === 700000 && r.body.plan.totals.transactions === 18000 && r.body.plan.salesSource === 'month-plan v2' && r.body.plan.input.settings.targetSplh === 420);
+T('P5 porównuje plan godzin z limitem AOP (1200 h) i ostrzega przy przekroczeniu', r.body.plan.aopHours === 1200 && typeof r.body.plan.aopHeadroom === 'number' && (r.body.plan.aopHeadroom >= 0 || r.body.plan.warnings.some((w) => /limit AOP/.test(w))));
+await call(monthPlan, { method: 'POST', headers: asm, query: { action: 'params' }, body: { splh: 450, mpt: 3.5, podloga: 2 } });
+r = await call(monthPlan, { method: 'GET', headers: asm, query: { params: '1' } });
+T('wspólne parametry planowania zapisane (SPLH 450) i zwracane', r.body.params.splh === 450 && r.body.params.mpt === 3.5);
+r = await call(monthlyForecast, { method: 'POST', headers: asm, query: { action: 'generate' }, body: { month: '2026-10', expectedVersion: 1 } });
+T('P5 używa wspólnego SPLH, chyba że wywołanie poda własny', r.body.plan.input.settings.targetSplh === 450);
+r = await call(ap.default, { method: 'POST', headers: asm, query: { action: 'generate' }, body: { from: '2026-10-05', to: '2026-10-11', aop: { crewHoursMax: 200 }, wymagania: [] } });
+T('autoplan bez sprzedaży w formularzu bierze ją z Planu miesiąca proporcjonalnie do dni (7/31 × 700 000)', r.code === 200 && r.body.proposal && r.body.proposal.aopZrodlo === 'month-plan' && Math.abs(r.body.proposal.aop.sales - Math.round(700000 * 7 / 31)) <= 1);
+r = await call(ap.default, { method: 'POST', headers: asm, query: { action: 'generate' }, body: { from: '2026-10-05', to: '2026-10-11', aop: {}, wymagania: [] } });
+T('autoplan bez limitu w formularzu bierze godziny CREW z Planu miesiąca (7/31 × 1000 h)', r.code === 200 && Math.abs(r.body.proposal.aop.crewHoursMax - Math.round(1000 * 7 / 31 * 4) / 4) < 0.3 && r.body.proposal.aop.limitZrodlo === 'month-plan');
+r = await call(monthPlan, { method: 'POST', headers: asm, query: { action: 'event-save' }, body: { name: 'Kampania kanapkowa', typ: 'promo', from: '2026-10-06', to: '2026-10-19', upliftPct: 8 } });
+const evId = r.body.event && r.body.event.id;
+await call(monthPlan, { method: 'POST', headers: asm, query: { action: 'event-save' }, body: { name: 'Wszystkich Świętych', typ: 'closure', from: '2026-11-01', to: '2026-11-01' } });
+T('API zdarzeń: zapis z audytem, lista posortowana, zamknięcie dostaje −100', r.code === 200 && !!evId && (await call(monthPlan, { method: 'GET', headers: asm, query: { month: '2026-11' } })).body.events.length === 2 && (await call(monthPlan, { method: 'GET', headers: asm, query: { month: '2026-11' } })).body.events[1].upliftPct === -100);
+r = await call(forecast, { method: 'GET', headers: asm, query: { from: '2026-10-08', days: '3' } });
+T('P4: prognoza dnia w promocji = model × 1,08, zdarzenie nazwane', r.body.days[0].eventFactor === 1.08 && r.body.days[0].baseline === Math.round(r.body.days[0].baselineModel * 1.08) && r.body.days[0].events[0] === 'Kampania kanapkowa');
+r = await call(monthlyForecast, { method: 'POST', headers: asm, query: { action: 'generate' }, body: { month: '2026-11', monthlySales: 750000, monthlyTransactions: 19000, expectedVersion: 0 } });
+T('P5: dzień zamknięty (1.11) dostaje 0 zł, suma miesiąca zachowana, zdarzenia zapisane w planie', r.code === 200 && r.body.plan.days.find((d) => d.date === '2026-11-01').sales === 0 && r.body.plan.totals.sales === 750000 && r.body.plan.events.some((e) => e.date === '2026-11-01' && e.factor === 0));
+r = await call(monthPlan, { method: 'GET', headers: asm, query: { month: '2026-10' } });
+T('GET /month-plan: indeks sezonowy i kalibracja (październik z planem, bez wykonania; wrzesień z wykonaniem bez planu)', r.body.sezon && r.body.sezon.idx['10'] && Array.isArray(r.body.kalibracja) && r.body.kalibracja.some((k) => k.month === '2026-10' && k.plan === 700000 && k.actual === null) && r.body.kalibracja.some((k) => k.month === '2026-09' && k.kompletny && k.plan === null));
+r = await call(monthPlan, { method: 'POST', headers: asm, query: { action: 'season-save' }, body: { manual: { '12': 1.15, '13': 2 } } });
+T('season-save: ręczny grudzień 1,15, nieprawidłowy miesiąc pominięty', r.code === 200 && r.body.sezon.idx['12'].factor === 1.15 && r.body.sezon.idx['12'].zrodlo === 'manual');
+T('event-delete usuwa i audytuje', (await call(monthPlan, { method: 'POST', headers: asm, query: { action: 'event-delete' }, body: { id: evId } })).body.events.length === 1);
+T('ponowne otwarcie zatwierdzonego planu wymaga powodu', (await call(monthPlan, { method: 'POST', headers: asm, query: { action: 'reopen' }, body: { month: '2026-10', expectedVersion: 2 } })).code === 400 && (await call(monthPlan, { method: 'POST', headers: asm, query: { action: 'reopen' }, body: { month: '2026-10', expectedVersion: 2, reason: 'nowy cel z centrali' } })).body.plan.status === 'DRAFT');
+
 console.log('— P4-03: regresja syntetycznego Actual —');
 try {
   const app = readFileSync(new URL('../../rex-cloud-admin/src/App.jsx', import.meta.url), 'utf-8');

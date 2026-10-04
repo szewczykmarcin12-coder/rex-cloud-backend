@@ -1,7 +1,7 @@
 import { cors } from '../lib/_helpers.js';
 import schedule from '../lib/schedule.js';
 import adminAuth from '../lib/admin-auth.js';
-import planning from '../lib/planning.js';
+import monthPlan from '../lib/month-plan.js';
 import swaps from '../lib/swaps.js';
 import timesheets from '../lib/timesheets.js';
 import accounts from '../lib/accounts.js';
@@ -26,7 +26,7 @@ import autoplan from '../lib/autoplan.js';
 const TRASY = {
   'schedule': schedule,
   'admin-auth': adminAuth,
-  'planning': planning,
+  'month-plan': monthPlan,
   'swaps': swaps,
   'timesheets': timesheets,
   'accounts': accounts,
