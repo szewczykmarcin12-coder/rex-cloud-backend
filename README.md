@@ -728,3 +728,8 @@ Założenie (zgodne z uwagą IT): dane sprzed roku w QSR nie są źródłem *poz
 ## v12.5 — paski zmian w siatce dnia i karta wydruku dnia (4.10.2026)
 - Siatka dnia: pasek zmiany ma wysokość automatyczną (min. 46 px), dwie linie — stanowisko 11,5 px i godziny 10,5 px — zawsze w całości widoczne; w trybie pełnoekranowym 40 px / 11 px. Stanowiska nie są już ucinane od góry.
 - Karta wydruku dnia (A4 poziomo, 1122×794 px = 1:1 na papierze): rozmiary z wzorca 4,8–6,4 px (1,3–1,7 mm na papierze) przeskalowane ×1,5 (min. 8 px); paski na osi czasu 20 px zamiast 16, etykieta paska = godziny (np. „06–14”), a przy zmianie ≥ 8 h także stanowisko („06–14 · KANAPKI / WRAPY”) — zamiast samych inicjałów, które dublowały kolumnę „Pracownik”. Podgląd pliku `podglad-karta-dnia*.html` w outputs pokazuje kartę z danymi przykładowymi.
+
+## v12.6 — telefon: Studio i Employee Hub (4.10.2026)
+- **Studio na telefonie było rozjechane** — blok typografii v12.4 ustawił `margin-left: 236px` dla treści *po* regule mobilnej, więc na ≤ 780 px treść była zepchnięta w wąską kolumnę przy prawej krawędzi. Dodany końcowy blok mobilny: menu chowane (hamburger), treść na całą szerokość, pasek górny 54 px, pasek modułów 34 px, siatki metryk 2 → 1 kolumna, powiadomienia (np. świeżość POS) zawijane z przyciskiem na całą szerokość.
+- **Employee Hub**: skalowanie czcionek cofnięte do łagodnego (×1,2 z podłogą 10 px zamiast ×1,35/10,5) — na 375–430 px wcześniejsze wartości rozdymały karty giełdy i nagłówki. Inter z otwartymi cyframi zostaje.
+- Siatka tygodnia: pigułki zmian wyśrodkowane, z odstępem od grubej lewej krawędzi (pierwsza cyfra nie była przycinana).
