@@ -131,7 +131,24 @@ T('pending NIE blokuje planera', (await call(schedule, { method: 'POST', headers
 r = await call(availability, { method: 'POST', headers: asm, query: { action: 'decide' }, body: { id: dyId, status: 'approved', managerNote: 'ok' } });
 T('decyzja managera zapisana', r.code === 200 && r.body.request.status === 'approved');
 r = await call(schedule, { method: 'POST', headers: asm, query: { action: 'add' }, body: { date: dTarget('10'), name: 'KOWAL', start: '13:00', end: '17:00', accountId: 'uA' } });
-T('zatwierdzone „nie mogę" blokuje planera (409)', r.code === 409 && String(r.body.error).includes('nie mogę'));
+T('zatwierdzone „nie mogę": planer zatrzymuje się z pytaniem (409, dyspozycja:true), nie z twardą blokadą', r.code === 409 && r.body.dyspozycja === true && String(r.body.error).includes('nie mogę'));
+r = await call(schedule, { method: 'POST', headers: asm, query: { action: 'add' }, body: { date: dTarget('10'), name: 'KOWAL', start: '13:00', end: '17:00', accountId: 'uA', mimoDyspozycji: true, aktualizujDyspozycje: true, powod: 'potwierdził telefonicznie' } });
+T('manager potwierdza → zmiana dodana, oznaczona „mimo dyspozycji”, ostrzeżenie w odpowiedzi', r.code === 200 && r.body.shift.mimoDyspozycji && r.body.shift.mimoDyspozycji.reason === 'potwierdził telefonicznie' && r.body.warnings.some((w) => /mimo zgłoszonej niedostępności/.test(w)));
+const sidMimo = r.body.shift.sid;
+r = await call(availability, { method: 'GET', headers: asm, query: { reqs: '1' } });
+const dyPo = r.body.requests.filter((x) => x.accountId === 'uA' && x.date === dTarget('10'));
+T('dyspozycja na ten dzień zmieniona na „dostępny” z adnotacją managera (stare „nie mogę” nie wraca)', dyPo.length >= 1 && dyPo.every((x) => x.type !== 'unavailable' || x.status !== 'approved') && dyPo.some((x) => x.type === 'available' && x.nadpisanie && x.nadpisanie.poprzedni && x.nadpisanie.poprzedni.type === 'unavailable'));
+T('kolejna zmiana tego dnia nie pyta już o dyspozycję (konflikt nakładania to inna sprawa)', (await call(schedule, { method: 'POST', headers: asm, query: { action: 'add' }, body: { date: dTarget('10'), name: 'KOWAL', start: '18:00', end: '21:00', accountId: 'uA' } })).body.dyspozycja !== true);
+r = await call(schedule, { method: 'GET', headers: asm, query: {} }); const mZ = r.body.shifts.find((x) => x.sid === sidMimo);
+T('zmiana mimo dyspozycji zapisana w grafiku z autorem i czasem', mZ && mZ.mimoDyspozycji && mZ.mimoDyspozycji.by === 'ASM');
+r = await call(audit, { method: 'GET', headers: asm, query: { action: 'availability.override' } });
+T('audyt: availability.override', r.code === 200 && (r.body.entries || []).some((e) => e.action === 'availability.override'));
+// wariant bez aktualizacji dyspozycji: zmiana dodana, „nie mogę” zostaje
+await call(availability, { method: 'POST', headers: emp, query: { action: 'request' }, body: { date: dTarget('11'), type: 'unavailable' } });
+const dy11 = (await call(availability, { method: 'GET', headers: asm, query: { reqs: '1' } })).body.requests.find((x) => x.accountId === 'uA' && x.date === dTarget('11'));
+await call(availability, { method: 'POST', headers: asm, query: { action: 'decide' }, body: { id: dy11.id, status: 'approved' } });
+r = await call(schedule, { method: 'POST', headers: asm, query: { action: 'add' }, body: { date: dTarget('11'), name: 'KOWAL', start: '13:00', end: '17:00', accountId: 'uA', mimoDyspozycji: true, aktualizujDyspozycje: false } });
+T('bez aktualizacji dyspozycji: zmiana dodana, „nie mogę” pozostaje zatwierdzone', r.code === 200 && (await call(availability, { method: 'GET', headers: asm, query: { reqs: '1' } })).body.requests.some((x) => x.accountId === 'uA' && x.date === dTarget('11') && x.type === 'unavailable' && x.status === 'approved'));
 r = await call(availability, { method: 'GET', headers: asm, query: { reqs: '1' } });
 T('panel widzi wszystkie zgłoszenia bez filtra zakresu', r.code === 200 && r.body.requests.length >= 2 && typeof r.body.requests[0].conflict === 'boolean');
 T('pracownik nie może decydować', (await call(availability, { method: 'POST', headers: emp, query: { action: 'decide' }, body: { id: dyId, status: 'approved' } })).code === 403);
