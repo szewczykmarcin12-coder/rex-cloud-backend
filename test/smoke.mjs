@@ -404,6 +404,27 @@ T('apply zwraca zmiany do add-bulk (tylko obsadzone)', ra.code === 200 && ra.bod
 T('pracownik nie wygeneruje propozycji → 403', (await call(apH, { method: 'POST', headers: emp, query: { action: 'generate' }, body: {} })).code === 403);
 
 
+
+console.log('— Audyt 11.10: okna przez północ, odpoczynek z sąsiednich dni, deficyt stanowiskowy, stawki, statusy —');
+const avMod = await import('../lib/availability.js');
+T('okno 22:00–02:00: zmiana 22:00–02:00 mieści się, 20:00–02:00 nie', avMod.ocenOknoDyspozycji({ type: 'specific_shift', startTime: '22:00', endTime: '02:00' }, '22:00', '02:00') === null && avMod.ocenOknoDyspozycji({ type: 'specific_shift', startTime: '22:00', endTime: '02:00' }, '20:00', '02:00').kod === 'okno');
+T('„do 23:30” to ograniczenie: zmiana do 23:00 OK, do 23:45 nie; „do 02:00” działa przez północ', avMod.ocenOknoDyspozycji({ type: 'until_time', endTime: '23:30' }, '16:00', '23:00') === null && avMod.ocenOknoDyspozycji({ type: 'until_time', endTime: '23:30' }, '16:00', '23:45').kod === 'do' && avMod.ocenOknoDyspozycji({ type: 'until_time', endTime: '02:00' }, '18:00', '01:30') === null && avMod.ocenOknoDyspozycji({ type: 'until_time', endTime: '02:00' }, '18:00', '02:30').kod === 'do');
+T('„od 22:00”: zmiana 22:00–06:00 OK, 21:00–02:00 nie', avMod.ocenOknoDyspozycji({ type: 'from_time', startTime: '22:00' }, '22:00', '06:00') === null && avMod.ocenOknoDyspozycji({ type: 'from_time', startTime: '22:00' }, '21:00', '02:00').kod === 'od');
+// odpoczynek: zmiana 30.09 18:00–02:00 poza okresem → 1.10 06:00 narusza 11 h już w generatorze
+const wSas = ap.ulozGrafik({ from: '2026-10-01', to: '2026-10-01', aop: { crewHoursMax: 20, sales: 30000 }, wymagania: [{ station: 'KANAPKI / WRAPY', start: '06:00', end: '14:00' }], seed: 7 },
+  { accounts: kontaAP.filter((k) => k.id === 'c1' || k.id === 'm1'), historia: histAP, salesHist: {}, hourlyProfile: null, absences: [], avail: [], istniejace: [], sasiednie: [{ date: '2026-09-30', accountId: 'c1', name: 'KANAPKA', station: 'KANAPKI / WRAPY', start: '18:00', end: '02:00', hours: 8 }] });
+T('generator widzi zmianę z dnia przed okresem: Ala nie dostaje 06:00 po nocce (odpoczynek 11 h), zmiana zostaje nieobsadzona z powodem', !wSas.przypisania.some((p) => p.accountId === 'c1' && p.start === '06:00') && wSas.przypisania.some((p) => p.wymagana && !p.accountId && p.powody && p.powody['odpoczynek 11 h']));
+// deficyt stanowiskowy: wymagany PREP, nikt nie ma historii PREP → obsadzone z flagą, deficyt raportowany, stanowisko nie zamienione
+const wPrep = ap.ulozGrafik({ from: '2026-10-05', to: '2026-10-06', aop: { crewHoursMax: 60, sales: 60000 }, wymagania: [{ station: 'PREP', start: '08:00', end: '16:00' }, { station: 'FRYTKI', start: '08:00', end: '16:00' }], seed: 7 },
+  { accounts: kontaAP, historia: histAP, salesHist: {}, hourlyProfile: null, absences: [], avail: [], istniejace: [] });
+T('wymagana zmiana PREP zachowuje stanowisko PREP (bez zamiany w reperacji) i jest w deficycie stanowiskowym', wPrep.przypisania.filter((p) => p.wymagana && p.station === 'PREP').length === 2 && wPrep.podsumowanie.deficytStanowisk.PREP && wPrep.podsumowanie.deficytStanowisk.PREP.bezKwalifikacjiH + wPrep.podsumowanie.deficytStanowisk.PREP.nieobsadzoneH >= 8 && wPrep.statusy.obsada === 'czesciowa' && wPrep.statusy.kompletna === false);
+T('macierz kwalifikacji konta jest twarda: osoba bez PREP na liście stanowisk nie dostaje PREP', (() => { const k2 = kontaAP.map((k) => ({ ...k, stanowiska: k.id === 'c2' ? ['FRYTKI'] : k.id === 'c1' ? ['KANAPKI / WRAPY'] : k.id === 'c3' ? ['PREP'] : [] })); const w = ap.ulozGrafik({ from: '2026-10-05', to: '2026-10-05', aop: { crewHoursMax: 30, sales: 30000 }, wymagania: [{ station: 'PREP', start: '08:00', end: '16:00' }], seed: 7 }, { accounts: k2, historia: histAP, salesHist: {}, hourlyProfile: null, absences: [], avail: [], istniejace: [] }); const z = w.przypisania.find((p) => p.wymagana); return z.accountId === 'c3' && !w.podsumowanie.deficytStanowisk.PREP; })());
+// stawki: brak stawki u jednej osoby → koszt null, pokrycie < 100, status danych
+const kBez = kontaAP.map((k) => (k.id === 'c2' ? { ...k, stawka: 0 } : k));
+const wBez = ap.ulozGrafik({ from: '2026-10-05', to: '2026-10-07', aop: { crewHoursMax: 80, sales: 90000 }, wymagania: [{ station: 'KANAPKI / WRAPY', start: '06:00', end: '14:00' }, { station: 'FRYTKI', start: '12:00', end: '20:00' }], seed: 7 }, { accounts: kBez, historia: histAP, salesHist: {}, hourlyProfile: null, absences: [], avail: [], istniejace: [] });
+T('brak stawki ≠ 0 zł: kosztSzac null, COL null, lista braków, pokrycie stawek < 100 %', wBez.przypisania.some((p) => p.accountId === 'c2') ? (wBez.podsumowanie.kosztSzac === null && wBez.podsumowanie.colSzac === null && wBez.podsumowanie.bezStawki.includes('Bartek Frytka') && wBez.podsumowanie.pokrycieStawekPct < 100 && /brak dla 1/.test(wBez.statusy.dane.stawki)) : true);
+T('statusy osobno: budżet w limicie przy niepełnej obsadzie nie daje „kompletna”', wPrep.statusy.budzet === 'ok' && wPrep.statusy.kompletna === false);
+
 console.log('— POS: Sales Day by Day + Daily Operations → sales:data (netto), profil śróddzienny → P5 / autoplan —');
 const salesH = (await import('../lib/sales.js')).default;
 const salesMod = await import('../lib/sales.js');
@@ -422,6 +443,8 @@ const p5pos = r.body && r.body.plan;
 T('P5 październik z historii POS: suma zachowana, weekend > wtorek, profil zmierzony', r.code === 200 && p5pos && p5pos.totals.sales === 850000 && p5pos.intraday.source === 'measured' && p5pos.days.find((d) => d.date === '2026-10-04').sales > p5pos.days.find((d) => d.date === '2026-10-06').sales && !p5pos.warnings.some((w) => /standardowe założenie QSR/.test(w)));
 const slotMax = p5pos.days[0].slots.reduce((m, s) => (s.sales > m.sales ? s : m), p5pos.days[0].slots[0]);
 T('sloty 15 min dnia wg zmierzonego profilu: szczyt 14:30, 03:00 puste', slotMax.time === '14:30' && p5pos.days[0].slots.find((s) => s.time === '03:00').sales === 0);
+const sl12 = p5pos.days[0].slots.find((s) => s.time === '12:00'), sl04 = p5pos.days[0].slots.find((s) => s.time === '04:00');
+T('wymagana obsada = crew z popytu + manager na zmianie (1 w godzinach otwarcia 06–02, 0 o 04:00)', sl12.requiredMgr === 1 && Math.abs(sl12.requiredPeople - (sl12.requiredCrew + 1)) < 1e-9 && sl04.requiredMgr === 0 && sl04.requiredPeople === sl04.requiredCrew);
 T('bez profilu — ostrzeżenie o założeniu QSR', monthlyForecastMod.buildMonthlyForecast({ month: '2026-10', monthlySales: 850000, monthlyTransactions: 21000, history: { sales: sdGet.sales, checks: sdGet.checks } }).warnings.some((w) => /standardowe założenie QSR/.test(w)));
 const sdz = salesMod.profilSrodDzienny(await kv.get('sales:data').then((x) => x.intraday));
 T('autoplan: krzywa dnia z profilu śróddziennego ma szczyt 14–15, zero w nocy', (() => { const w = ap.krzywaDnia(35000, 420, sdz.hourlyDow['1']); const i = w.indexOf(Math.max(...w)); return i >= 14 && i <= 18 && w[40] === 0; })());
