@@ -19,6 +19,9 @@ import compliance from '../lib/compliance.js';
 import kpi from '../lib/kpi.js';
 import org from '../lib/org.js';
 import autoplan from '../lib/autoplan.js';
+import workModel from '../lib/work-model.js';
+import qualifications from '../lib/qualifications.js';
+import scheduleAudit from '../lib/schedule-audit.js';
 
 // Jedna funkcja serverless obsługuje wszystkie endpointy /api/*.
 // Dzięki temu projekt zajmuje 1 z 12 dostępnych funkcji na planie Hobby,
@@ -45,6 +48,9 @@ const TRASY = {
   'kpi-nightly': kpi,
   'org': org,
   'autoplan': autoplan,
+  'work-model': workModel,
+  'qualifications': qualifications,
+  'schedule-audit': scheduleAudit,
 };
 
 export default async function handler(req, res) {
