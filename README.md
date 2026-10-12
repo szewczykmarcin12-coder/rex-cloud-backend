@@ -73,7 +73,7 @@ zwraca czytelny błąd konfiguracji. Bootstrap działa tylko, gdy klucz nie istn
 ### Pierwsze uruchomienie po aktualizacji
 1. Ustaw zmienne bootstrap + `ALLOWED_ORIGINS`, wdróż (`vercel --prod`).
 2. Zaloguj się do panelu jako ASM i zmień hasło startowe (Ustawienia).
-3. Ustawienia → **Terminale REX Clock** → dodaj identyfikatory terminali (np. `K003-POS-01`) —
+3. Ustawienia → **Terminale odbić** → dodaj identyfikatory terminali (np. `K003-POS-01`) —
    do tego czasu terminal nie przyjmie odbić.
 4. Karty pracowników przypisz przez `POST /api/accounts?action=card&id=…` (token karty jest hashowany).
 
@@ -208,7 +208,7 @@ Poza zakresem kodu (wymagają decyzji/infrastruktury): migracja do Postgres z te
 
 ## v3.7.2 — auto-sync Actual, pełne nazwiska, porządek w aplikacji
 
-- **Actual = automat**: widok Wykonanie sam pobiera odbicia z REX Clock przy otwarciu dnia
+- **Actual = automat**: widok Wykonanie sam pobiera odbicia z Employee Hub / terminali przy otwarciu dnia
   i odświeża je co 60 s. Wpisy z odbić (source: clock) są aktualizowane, ręczne korekty
   kierownika NIGDY nie są nadpisywane. Przycisk „Synchronizuj teraz" został jako wymuszenie.
 - **Pełne nazwiska w Actual**: wiersze pokazują imię i nazwisko z konta pracownika;
